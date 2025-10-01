@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collision Playground</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            color: white;
+        }
+        #canvas {
+            display: block;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            cursor: crosshair;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .slider-group {
+            margin: 8px 0;
+        }
+        .slider-group label {
+            display: block;
+            font-size: 11px;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+        input[type="range"] {
+            width: 180px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #0f9;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0, 255, 153, 0.5);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #0f9;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 0 5px rgba(0, 255, 153, 0.5);
+        }
+        .value {
+            display: inline-block;
+            width: 35px;
+            text-align: right;
+            font-weight: bold;
+            color: #0f9;
+            font-size: 11px;
+        }
+        .nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .nav a {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            text-decoration: none;
+            color: white;
+            font-size: 11px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+        .nav a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 11px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .stat-line {
+            margin: 4px 0;
+            color: #0f9;
+        }
+        button {
+            margin: 5px 5px 5px 0;
+            padding: 6px 12px;
+            background: #0f9;
+            border: none;
+            border-radius: 5px;
+            color: black;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #0fa;
+            transform: scale(1.05);
+        }
+        .title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.05);
+            letter-spacing: 8px;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="title">COLLISION</div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label>Elasticity: <span class="value" id="elasticVal">0.9</span></label>
+            <input type="range" id="elastic" min="0" max="1" value="0.9" step="0.05">
+        </div>
+        <div class="slider-group">
+            <label>Gravity: <span class="value" id="gravVal">0.5</span></label>
+            <input type="range" id="grav" min="0" max="2" value="0.5" step="0.1">
+        </div>
+        <div class="slider-group">
+            <label>Ball Size: <span class="value" id="sizeVal">20</span></label>
+            <input type="range" id="ballSize" min="10" max="40" value="20" step="2">
+        </div>
+        <button id="spawn">SPAWN</button>
+        <button id="clear">CLEAR</button>
+        <button id="chaos">CHAOS</button>
+    </div>
+
+    <div class="nav">
+        <a href="index.html">Projectile</a>
+        <a href="orbit.html">Orbits</a>
+        <a href="pendulum.html">Pendulum</a>
+        <a href="../index.html">Hub</a>
+    </div>
+
+    <div class="stats">
+        <div class="stat-line">Balls: <span id="count">0</span></div>
+        <div class="stat-line">Collisions: <span id="collisions">0</span></div>
+        <div class="stat-line">Avg Speed: <span id="avgSpeed">0</span></div>
+    </div>
+
+    <script>
+        console.log('VELOCITY: Collision playground initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let elasticity = 0.9;
+        let gravity = 0.5;
+        let ballSize = 20;
+        let balls = [];
+        let collisionCount = 0;
+        let collisionFlashes = [];
+
+        // Sliders
+        document.getElementById('elastic').addEventListener('input', (e) => {
+            elasticity = parseFloat(e.target.value);
+            document.getElementById('elasticVal').textContent = elasticity.toFixed(2);
+        });
+
+        document.getElementById('grav').addEventListener('input', (e) => {
+            gravity = parseFloat(e.target.value);
+            document.getElementById('gravVal').textContent = gravity.toFixed(1);
+        });
+
+        document.getElementById('ballSize').addEventListener('input', (e) => {
+            ballSize = parseFloat(e.target.value);
+            document.getElementById('sizeVal').textContent = ballSize;
+        });
+
+        document.getElementById('spawn').addEventListener('click', spawnBall);
+
+        document.getElementById('clear').addEventListener('click', () => {
+            balls = [];
+            collisionCount = 0;
+            collisionFlashes = [];
+        });
+
+        document.getElementById('chaos').addEventListener('click', () => {
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => spawnBall(), i * 50);
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            balls.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10,
+                radius: ballSize,
+                color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+                mass: ballSize
+            });
+        });
+
+        function spawnBall() {
+            balls.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height * 0.3,
+                vx: (Math.random() - 0.5) * 15,
+                vy: Math.random() * 3,
+                radius: ballSize,
+                color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+                mass: ballSize
+            });
+            console.log(`COLLISION: Ball spawned, total: ${balls.length}`);
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Apply gravity and update positions
+            for (const ball of balls) {
+                ball.vy += gravity;
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // Wall collisions
+                if (ball.x - ball.radius < 0) {
+                    ball.x = ball.radius;
+                    ball.vx *= -elasticity;
+                } else if (ball.x + ball.radius > canvas.width) {
+                    ball.x = canvas.width - ball.radius;
+                    ball.vx *= -elasticity;
+                }
+
+                if (ball.y - ball.radius < 0) {
+                    ball.y = ball.radius;
+                    ball.vy *= -elasticity;
+                } else if (ball.y + ball.radius > canvas.height) {
+                    ball.y = canvas.height - ball.radius;
+                    ball.vy *= -elasticity;
+                    ball.vx *= 0.98; // Friction
+                }
+            }
+
+            // Ball-to-ball collisions
+            for (let i = 0; i < balls.length; i++) {
+                for (let j = i + 1; j < balls.length; j++) {
+                    const b1 = balls[i];
+                    const b2 = balls[j];
+
+                    const dx = b2.x - b1.x;
+                    const dy = b2.y - b1.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < b1.radius + b2.radius) {
+                        // Collision detected
+                        collisionCount++;
+                        collisionFlashes.push({
+                            x: (b1.x + b2.x) / 2,
+                            y: (b1.y + b2.y) / 2,
+                            alpha: 1,
+                            radius: 0
+                        });
+
+                        // Separate balls
+                        const overlap = b1.radius + b2.radius - dist;
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+
+                        b1.x -= nx * overlap / 2;
+                        b1.y -= ny * overlap / 2;
+                        b2.x += nx * overlap / 2;
+                        b2.y += ny * overlap / 2;
+
+                        // Elastic collision with mass
+                        const relVx = b2.vx - b1.vx;
+                        const relVy = b2.vy - b1.vy;
+                        const dotProduct = relVx * nx + relVy * ny;
+
+                        if (dotProduct < 0) continue; // Already separating
+
+                        const impulse = (2 * dotProduct) / (b1.mass + b2.mass);
+
+                        b1.vx += impulse * b2.mass * nx * elasticity;
+                        b1.vy += impulse * b2.mass * ny * elasticity;
+                        b2.vx -= impulse * b1.mass * nx * elasticity;
+                        b2.vy -= impulse * b1.mass * ny * elasticity;
+                    }
+                }
+            }
+
+            // Draw balls
+            for (const ball of balls) {
+                // Glow
+                const grad = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius * 1.5);
+                grad.addColorStop(0, ball.color);
+                grad.addColorStop(0.7, ball.color);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ball
+                ctx.fillStyle = ball.color;
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Shine
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.beginPath();
+                ctx.arc(ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, ball.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Velocity indicator
+                const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                if (speed > 0.5) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(ball.x, ball.y);
+                    ctx.lineTo(ball.x + ball.vx * 2, ball.y + ball.vy * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw collision flashes
+            for (let i = collisionFlashes.length - 1; i >= 0; i--) {
+                const flash = collisionFlashes[i];
+                flash.alpha -= 0.05;
+                flash.radius += 3;
+
+                ctx.strokeStyle = `rgba(255, 255, 255, ${flash.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(flash.x, flash.y, flash.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                if (flash.alpha <= 0) {
+                    collisionFlashes.splice(i, 1);
+                }
+            }
+
+            // Update stats
+            document.getElementById('count').textContent = balls.length;
+            document.getElementById('collisions').textContent = collisionCount;
+
+            let avgSpeed = 0;
+            for (const ball of balls) {
+                avgSpeed += Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+            }
+            avgSpeed = balls.length > 0 ? (avgSpeed / balls.length).toFixed(1) : 0;
+            document.getElementById('avgSpeed').textContent = avgSpeed;
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        animate();
+        console.log('VELOCITY: Collision simulation started at 60fps');
+    </script>
+</body>
+</html>

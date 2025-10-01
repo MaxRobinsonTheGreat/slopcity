@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind Tunnel</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(90deg, #0a0a0a 0%, #1a1a1a 100%);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100vh;
+}
+
+.nav {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.nav a {
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 12px;
+  transition: all 0.3s;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.nav a:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+.info {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Fluid</a>
+  <a href="smoke.html">Smoke</a>
+  <a href="ripple.html">Ripple</a>
+  <a href="wind.html">Wind</a>
+  <a href="../index.html">Hub</a>
+</div>
+
+<div class="info">Flow field visualization - wind patterns around obstacles</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+console.log('WIND TUNNEL - Flow field particle system');
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let width, height;
+const particles = [];
+const maxParticles = 2000;
+const fieldCols = 100;
+const fieldRows = 60;
+let field = [];
+
+class Particle {
+  constructor() {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.vx = 0;
+    this.vy = 0;
+    this.life = Math.random();
+    this.hue = Math.random() * 60 + 160;
+  }
+
+  update(dt) {
+    const col = Math.floor(this.x / width * fieldCols);
+    const row = Math.floor(this.y / height * fieldRows);
+    const idx = row * fieldCols + col;
+
+    if (idx >= 0 && idx < field.length) {
+      const f = field[idx];
+      this.vx += f.x * 0.1;
+      this.vy += f.y * 0.1;
+    }
+
+    this.vx *= 0.95;
+    this.vy *= 0.95;
+    this.vx += 2;
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+      this.x = -10;
+      this.y = Math.random() * height;
+      this.vx = 0;
+      this.vy = 0;
+      this.life = Math.random();
+    }
+
+    this.life -= 0.001;
+    return this.life > 0;
+  }
+}
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+
+  field = [];
+  for (let i = 0; i < fieldCols * fieldRows; i++) {
+    field.push({ x: 0, y: 0 });
+  }
+
+  particles.length = 0;
+  for (let i = 0; i < maxParticles; i++) {
+    particles.push(new Particle());
+  }
+
+  console.log(`Wind field: ${fieldCols}x${fieldRows}, ${maxParticles} particles`);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+const obstacles = [
+  { x: 0.3, y: 0.3, r: 0.08, shape: 'circle' },
+  { x: 0.5, y: 0.5, r: 0.06, shape: 'circle' },
+  { x: 0.7, y: 0.6, r: 0.07, shape: 'circle' }
+];
+
+let time = 0;
+
+function updateField() {
+  for (let row = 0; row < fieldRows; row++) {
+    for (let col = 0; col < fieldCols; col++) {
+      const x = col / fieldCols;
+      const y = row / fieldRows;
+      const idx = row * fieldCols + col;
+
+      let fx = 1;
+      let fy = Math.sin(x * 10 + time * 2) * 0.5;
+
+      for (let obs of obstacles) {
+        obs.y = 0.5 + Math.sin(time * 0.5 + obs.x * 3) * 0.15;
+
+        const dx = x - obs.x;
+        const dy = y - obs.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < obs.r * 1.5) {
+          const angle = Math.atan2(dy, dx);
+          const force = (obs.r * 1.5 - dist) / (obs.r * 1.5);
+          fx += Math.cos(angle) * force * 3;
+          fy += Math.sin(angle) * force * 3;
+        }
+      }
+
+      field[idx].x = fx;
+      field[idx].y = fy;
+    }
+  }
+}
+
+let lastTime = Date.now();
+
+function animate() {
+  const now = Date.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  time += dt;
+
+  updateField();
+
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+  ctx.fillRect(0, 0, width, height);
+
+  for (let obs of obstacles) {
+    ctx.fillStyle = 'rgba(50, 50, 60, 0.5)';
+    ctx.beginPath();
+    ctx.arc(obs.x * width, obs.y * height, obs.r * width, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    if (!p.update(dt)) {
+      particles[i] = new Particle();
+    }
+
+    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    const alpha = Math.min(1, p.life * 0.6);
+    const hue = 180 + speed * 15;
+
+    ctx.strokeStyle = `hsla(${hue}, 80%, ${50 + speed * 3}%, ${alpha})`;
+    ctx.lineWidth = 1.5 + speed * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+console.log('Wind tunnel simulation active');
+</script>
+</body>
+</html>

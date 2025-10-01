@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile Launcher</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3a 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            color: white;
+        }
+        #canvas {
+            display: block;
+            background: linear-gradient(180deg, #1a1a3a 0%, #2a2a4a 50%, #3a4a2a 100%);
+            cursor: crosshair;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .slider-group {
+            margin: 10px 0;
+        }
+        .slider-group label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+        input[type="range"] {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4af;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(74, 170, 255, 0.5);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4af;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 0 5px rgba(74, 170, 255, 0.5);
+        }
+        .value {
+            display: inline-block;
+            width: 50px;
+            text-align: right;
+            font-weight: bold;
+            color: #4af;
+        }
+        .nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .nav a {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            text-decoration: none;
+            color: white;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+        .nav a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .stat-line {
+            margin: 5px 0;
+            color: #4af;
+        }
+        button {
+            margin-top: 10px;
+            padding: 8px 15px;
+            background: #e74c3c;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        .hint {
+            margin-top: 10px;
+            font-size: 10px;
+            opacity: 0.6;
+            text-align: center;
+        }
+        .title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.1);
+            letter-spacing: 10px;
+            pointer-events: none;
+            user-select: none;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="title">VELOCITY</div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label>Angle: <span class="value" id="angleVal">45°</span></label>
+            <input type="range" id="angle" min="0" max="90" value="45" step="1">
+        </div>
+        <div class="slider-group">
+            <label>Power: <span class="value" id="powerVal">50</span></label>
+            <input type="range" id="power" min="10" max="150" value="50" step="1">
+        </div>
+        <div class="slider-group">
+            <label>Gravity: <span class="value" id="gravityVal">9.8</span></label>
+            <input type="range" id="gravity" min="1" max="30" value="9.8" step="0.1">
+        </div>
+        <button id="fire">FIRE</button>
+        <button id="clear">CLEAR</button>
+        <div class="hint">Press SPACE to fire</div>
+    </div>
+
+    <div class="nav">
+        <a href="orbit.html">Orbits</a>
+        <a href="collision.html">Collisions</a>
+        <a href="pendulum.html">Pendulum</a>
+        <a href="../index.html">Hub</a>
+    </div>
+
+    <div class="stats">
+        <div class="stat-line">Projectiles: <span id="count">0</span></div>
+        <div class="stat-line">Max Height: <span id="maxHeight">0m</span></div>
+        <div class="stat-line">Distance: <span id="distance">0m</span></div>
+        <div class="stat-line">Flight Time: <span id="flightTime">0s</span></div>
+    </div>
+
+    <script>
+        console.log('VELOCITY: Projectile launcher initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const cannonX = 120;
+        const cannonY = canvas.height - 120;
+        const cannonLength = 60;
+
+        let angle = 45;
+        let power = 50;
+        let gravity = 9.8;
+        let projectiles = [];
+        let trails = [];
+        let projectileCount = 0;
+        let explosions = [];
+        let grassBlades = [];
+        let muzzleFlash = null;
+        let stars = [];
+
+        // Sliders
+        document.getElementById('angle').addEventListener('input', (e) => {
+            angle = parseFloat(e.target.value);
+            document.getElementById('angleVal').textContent = angle + '°';
+        });
+
+        document.getElementById('power').addEventListener('input', (e) => {
+            power = parseFloat(e.target.value);
+            document.getElementById('powerVal').textContent = power;
+        });
+
+        document.getElementById('gravity').addEventListener('input', (e) => {
+            gravity = parseFloat(e.target.value);
+            document.getElementById('gravityVal').textContent = gravity;
+        });
+
+        // Fire button
+        document.getElementById('fire').addEventListener('click', fireProjectile);
+
+        // Clear button
+        document.getElementById('clear').addEventListener('click', () => {
+            projectiles = [];
+            trails = [];
+            projectileCount = 0;
+            updateStats();
+        });
+
+        // Fire on spacebar
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                fireProjectile();
+            }
+        });
+
+        function fireProjectile() {
+            const rad = angle * Math.PI / 180;
+            const vx = Math.cos(rad) * power * 2;
+            const vy = -Math.sin(rad) * power * 2;
+
+            projectiles.push({
+                x: cannonX + Math.cos(rad) * cannonLength,
+                y: cannonY + Math.sin(rad) * cannonLength,
+                vx: vx,
+                vy: vy,
+                startTime: performance.now(),
+                maxHeight: 0,
+                trail: [],
+                glow: 1
+            });
+
+            // Create muzzle flash
+            muzzleFlash = {
+                x: cannonX + Math.cos(rad) * cannonLength,
+                y: cannonY + Math.sin(rad) * cannonLength,
+                radius: 20,
+                alpha: 1,
+                angle: rad
+            };
+
+            projectileCount++;
+            console.log(`FIRED: Angle=${angle}° Power=${power} Gravity=${gravity}`);
+        }
+
+        function updateStats() {
+            document.getElementById('count').textContent = projectileCount;
+
+            if (projectiles.length > 0) {
+                const active = projectiles[projectiles.length - 1];
+                const maxH = Math.max(0, (cannonY - active.maxHeight) / 10);
+                const dist = Math.max(0, (active.x - cannonX) / 10);
+                const time = ((performance.now() - active.startTime) / 1000).toFixed(2);
+
+                document.getElementById('maxHeight').textContent = maxH.toFixed(1) + 'm';
+                document.getElementById('distance').textContent = dist.toFixed(1) + 'm';
+                document.getElementById('flightTime').textContent = time + 's';
+            }
+        }
+
+        // Initialize grass once
+        function initGrass() {
+            grassBlades = [];
+            for (let i = 0; i < canvas.width; i += 10) {
+                grassBlades.push({
+                    x: i,
+                    offset: Math.random() * 4 - 2
+                });
+            }
+        }
+        initGrass();
+
+        // Initialize stars
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * (canvas.height - 200),
+                    size: Math.random() * 2,
+                    brightness: Math.random() * 0.5 + 0.5,
+                    twinkle: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        initStars();
+
+        function animate() {
+            ctx.fillStyle = 'rgba(26, 26, 58, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw stars
+            const time = performance.now() * 0.001;
+            for (const star of stars) {
+                star.twinkle += 0.05;
+                const twinkleBrightness = (Math.sin(star.twinkle) + 1) * 0.5;
+                const brightness = star.brightness * twinkleBrightness;
+                ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw ground with gradient
+            const groundGrad = ctx.createLinearGradient(0, canvas.height - 80, 0, canvas.height);
+            groundGrad.addColorStop(0, '#2a3a1a');
+            groundGrad.addColorStop(1, '#1a2a0a');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+            // Draw grass blades (cached)
+            ctx.strokeStyle = 'rgba(100, 150, 50, 0.3)';
+            ctx.lineWidth = 2;
+            for (const blade of grassBlades) {
+                ctx.beginPath();
+                ctx.moveTo(blade.x, canvas.height - 80);
+                ctx.lineTo(blade.x + blade.offset, canvas.height - 90);
+                ctx.stroke();
+            }
+
+            // Draw distance markers
+            ctx.font = '10px monospace';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 200; i < canvas.width; i += 100) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 80);
+                ctx.lineTo(i, canvas.height - 70);
+                ctx.stroke();
+                const meters = ((i - cannonX) / 10).toFixed(0);
+                ctx.fillText(meters + 'm', i - 15, canvas.height - 55);
+            }
+
+            // Draw cannon shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(cannonX + 5, cannonY + 35, 35, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw cannon base
+            ctx.fillStyle = '#444';
+            ctx.beginPath();
+            ctx.arc(cannonX, cannonY, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw cannon barrel
+            ctx.save();
+            ctx.translate(cannonX, cannonY);
+            const rad = angle * Math.PI / 180;
+            ctx.rotate(-rad);
+
+            // Barrel gradient
+            const barrelGrad = ctx.createLinearGradient(0, -12, 0, 12);
+            barrelGrad.addColorStop(0, '#888');
+            barrelGrad.addColorStop(0.5, '#666');
+            barrelGrad.addColorStop(1, '#444');
+            ctx.fillStyle = barrelGrad;
+            ctx.fillRect(0, -12, cannonLength, 24);
+
+            // Barrel tip
+            ctx.fillStyle = '#333';
+            ctx.fillRect(cannonLength - 5, -12, 5, 24);
+
+            // Center wheel
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw trajectory prediction
+            const predRad = angle * Math.PI / 180;
+            const predVx = Math.cos(predRad) * power * 2;
+            const predVy = -Math.sin(predRad) * power * 2;
+            let predX = cannonX + Math.cos(predRad) * cannonLength;
+            let predY = cannonY + Math.sin(predRad) * cannonLength;
+
+            let landingX = predX;
+            let landingY = predY;
+
+            ctx.strokeStyle = 'rgba(255, 255, 100, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.moveTo(predX, predY);
+
+            for (let t = 0; t < 300; t += 2) {
+                const x = predX + predVx * (t / 60);
+                const y = predY + predVy * (t / 60) + 0.5 * gravity * 10 * (t / 60) * (t / 60);
+                if (y > canvas.height - 80) {
+                    landingX = x;
+                    landingY = canvas.height - 80;
+                    ctx.lineTo(landingX, landingY);
+                    break;
+                }
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw landing marker
+            if (landingX > 0 && landingX < canvas.width) {
+                ctx.strokeStyle = 'rgba(255, 100, 100, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(landingX, landingY, 15, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(landingX - 10, landingY);
+                ctx.lineTo(landingX + 10, landingY);
+                ctx.moveTo(landingX, landingY - 10);
+                ctx.lineTo(landingX, landingY + 10);
+                ctx.stroke();
+            }
+
+            // Update and draw projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+
+                p.vy += gravity * 0.16;
+                p.x += p.vx * 0.016;
+                p.y += p.vy * 0.016;
+
+                p.trail.push({x: p.x, y: p.y});
+                if (p.trail.length > 100) p.trail.shift();
+
+                if (p.y < p.maxHeight) p.maxHeight = p.y;
+
+                // Draw trail with gradient
+                if (p.trail.length > 1) {
+                    for (let j = 1; j < p.trail.length; j++) {
+                        const alpha = (j / p.trail.length) * 0.5;
+                        ctx.strokeStyle = `rgba(74, 170, 255, ${alpha})`;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(p.trail[j-1].x, p.trail[j-1].y);
+                        ctx.lineTo(p.trail[j].x, p.trail[j].y);
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw velocity vector with arrow
+                const vMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                const vScale = Math.min(vMag * 0.3, 40);
+                const vx = (p.vx / vMag) * vScale;
+                const vy = (p.vy / vMag) * vScale;
+
+                ctx.strokeStyle = `rgba(255, 50, 50, ${p.glow})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x + vx, p.y + vy);
+                ctx.stroke();
+
+                // Arrow head
+                const arrowAngle = Math.atan2(vy, vx);
+                ctx.fillStyle = `rgba(255, 50, 50, ${p.glow})`;
+                ctx.beginPath();
+                ctx.moveTo(p.x + vx, p.y + vy);
+                ctx.lineTo(p.x + vx - 6 * Math.cos(arrowAngle - 0.3), p.y + vy - 6 * Math.sin(arrowAngle - 0.3));
+                ctx.lineTo(p.x + vx - 6 * Math.cos(arrowAngle + 0.3), p.y + vy - 6 * Math.sin(arrowAngle + 0.3));
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw projectile with glow
+                p.glow = Math.max(0.3, p.glow - 0.01);
+
+                // Outer glow
+                const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 15 * p.glow);
+                glowGrad.addColorStop(0, `rgba(74, 170, 255, ${p.glow})`);
+                glowGrad.addColorStop(0.5, `rgba(74, 170, 255, ${p.glow * 0.5})`);
+                glowGrad.addColorStop(1, 'rgba(74, 170, 255, 0)');
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 15 * p.glow, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#4af';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Check collision with ground
+                if (p.y > canvas.height - 80) {
+                    explosions.push({
+                        x: p.x,
+                        y: canvas.height - 80,
+                        radius: 0,
+                        maxRadius: 30,
+                        alpha: 1
+                    });
+                    projectiles.splice(i, 1);
+                } else if (p.x > canvas.width || p.x < 0) {
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // Draw explosions
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                const e = explosions[i];
+                e.radius += 2;
+                e.alpha -= 0.02;
+
+                // Outer ring
+                ctx.strokeStyle = `rgba(255, 150, 50, ${e.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner glow
+                ctx.fillStyle = `rgba(255, 200, 100, ${e.alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Particles
+                for (let j = 0; j < 8; j++) {
+                    const angle = (j / 8) * Math.PI * 2;
+                    const px = e.x + Math.cos(angle) * e.radius * 0.8;
+                    const py = e.y + Math.sin(angle) * e.radius * 0.8;
+                    ctx.fillStyle = `rgba(255, 100, 50, ${e.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                if (e.alpha <= 0 || e.radius > e.maxRadius) {
+                    explosions.splice(i, 1);
+                }
+            }
+
+            // Draw muzzle flash
+            if (muzzleFlash) {
+                muzzleFlash.alpha -= 0.1;
+                muzzleFlash.radius += 3;
+
+                // Flash glow
+                const flashGrad = ctx.createRadialGradient(
+                    muzzleFlash.x, muzzleFlash.y, 0,
+                    muzzleFlash.x, muzzleFlash.y, muzzleFlash.radius
+                );
+                flashGrad.addColorStop(0, `rgba(255, 200, 100, ${muzzleFlash.alpha})`);
+                flashGrad.addColorStop(0.5, `rgba(255, 150, 50, ${muzzleFlash.alpha * 0.7})`);
+                flashGrad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                ctx.fillStyle = flashGrad;
+                ctx.beginPath();
+                ctx.arc(muzzleFlash.x, muzzleFlash.y, muzzleFlash.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Flash spikes
+                ctx.strokeStyle = `rgba(255, 200, 0, ${muzzleFlash.alpha})`;
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 6; i++) {
+                    const spikeAngle = (i / 6) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(muzzleFlash.x, muzzleFlash.y);
+                    ctx.lineTo(
+                        muzzleFlash.x + Math.cos(spikeAngle) * muzzleFlash.radius * 1.5,
+                        muzzleFlash.y + Math.sin(spikeAngle) * muzzleFlash.radius * 1.5
+                    );
+                    ctx.stroke();
+                }
+
+                if (muzzleFlash.alpha <= 0) {
+                    muzzleFlash = null;
+                }
+            }
+
+            updateStats();
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initGrass();
+            initStars();
+        });
+
+        animate();
+        console.log('VELOCITY: Animation loop started at 60fps');
+    </script>
+</body>
+</html>

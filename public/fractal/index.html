@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            z-index: 10;
+            max-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #0f0;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        select, button {
+            width: 100%;
+            padding: 8px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .stat {
+            font-size: 11px;
+            color: #0a0;
+            margin-top: 5px;
+        }
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            font-size: 11px;
+            max-width: 300px;
+        }
+        #nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+        }
+        #nav a {
+            display: block;
+            color: #0f0;
+            text-decoration: none;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        #nav a:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #0a0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+
+        <div id="controls">
+            <h3 style="margin-bottom: 15px; text-align: center;">FRACTAL EXPLORER</h3>
+
+            <div class="control-group">
+                <label>Type</label>
+                <select id="fractalType">
+                    <option value="mandelbrot">Mandelbrot Set</option>
+                    <option value="julia">Julia Set</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Iterations <span class="value-display" id="iterValue">128</span></label>
+                <input type="range" id="iterations" min="32" max="512" value="128" step="16">
+            </div>
+
+            <div class="control-group">
+                <label>Color Shift <span class="value-display" id="colorValue">0</span></label>
+                <input type="range" id="colorShift" min="0" max="360" value="0" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>Color Mode</label>
+                <select id="colorMode">
+                    <option value="smooth">Smooth</option>
+                    <option value="bands">Bands</option>
+                    <option value="psychedelic">Psychedelic</option>
+                    <option value="fire">Fire</option>
+                    <option value="ice">Ice</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button id="resetBtn">Reset View</button>
+            </div>
+
+            <div class="control-group">
+                <button id="animateBtn">Auto Zoom</button>
+            </div>
+
+            <div class="control-group">
+                <label>Presets</label>
+                <select id="presets">
+                    <option value="">Select Location...</option>
+                    <option value="0">Seahorse Valley</option>
+                    <option value="1">Elephant Valley</option>
+                    <option value="2">Spiral</option>
+                    <option value="3">Mini Mandelbrot</option>
+                    <option value="4">Lightning</option>
+                </select>
+            </div>
+
+            <div class="stat">Click: Zoom | Drag: Pan | Shift: Out</div>
+            <div class="stat" id="zoomLevel">Zoom: 1.00x</div>
+            <div class="stat" id="renderTime">Render: 0ms</div>
+        </div>
+
+        <div id="nav">
+            <a href="tree.html">Recursive Trees</a>
+            <a href="spiral.html">Spiral Patterns</a>
+            <a href="subdivision.html">Subdivisions</a>
+            <a href="../index.html">Main Hub</a>
+        </div>
+
+        <div id="info">
+            <strong>FRACTAL EXPLORER v1.0</strong><br><br>
+            Navigate infinite mathematical beauty.<br>
+            Click to zoom into any point.<br>
+            Watch patterns repeat at every scale.<br>
+            Discover the edge of infinity.
+        </div>
+    </div>
+
+    <script>
+        console.log('🌀 FRACTAL EXPLORER INITIALIZING...');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // High DPI support
+        const dpr = window.devicePixelRatio || 1;
+
+        let width, height;
+        let imageData;
+
+        // Fractal parameters
+        let params = {
+            type: 'mandelbrot',
+            centerX: -0.5,
+            centerY: 0,
+            zoom: 1,
+            maxIter: 128,
+            colorShift: 0,
+            colorMode: 'smooth',
+            juliaC: { re: -0.7, im: 0.27015 } // Beautiful Julia constant
+        };
+
+        let animating = false;
+        let animationFrame = null;
+
+        // Beautiful preset locations in the Mandelbrot set
+        const presets = [
+            { name: 'Seahorse Valley', x: -0.75, y: 0.1, zoom: 100 },
+            { name: 'Elephant Valley', x: 0.3, y: 0.0, zoom: 50 },
+            { name: 'Spiral', x: -0.7453, y: 0.1127, zoom: 500 },
+            { name: 'Mini Mandelbrot', x: -0.1592, y: 1.0317, zoom: 200 },
+            { name: 'Lightning', x: -0.7269, y: 0.1889, zoom: 300 }
+        ];
+
+        // Mouse drag state
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartCenterX = 0;
+        let dragStartCenterY = 0;
+        let renderTimeout = null;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+            imageData = ctx.createImageData(canvas.width, canvas.height);
+        }
+
+        // Color functions
+        function hslToRgb(h, s, l) {
+            h = h % 360;
+            s = Math.max(0, Math.min(1, s));
+            l = Math.max(0, Math.min(1, l));
+
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = l - c / 2;
+
+            let r, g, b;
+            if (h < 60) [r, g, b] = [c, x, 0];
+            else if (h < 120) [r, g, b] = [x, c, 0];
+            else if (h < 180) [r, g, b] = [0, c, x];
+            else if (h < 240) [r, g, b] = [0, x, c];
+            else if (h < 300) [r, g, b] = [x, 0, c];
+            else [r, g, b] = [c, 0, x];
+
+            return {
+                r: Math.round((r + m) * 255),
+                g: Math.round((g + m) * 255),
+                b: Math.round((b + m) * 255)
+            };
+        }
+
+        function getColor(iter, maxIter, mode, shift) {
+            if (iter === maxIter) {
+                return { r: 0, g: 0, b: 0 };
+            }
+
+            const t = iter / maxIter;
+
+            switch(mode) {
+                case 'smooth':
+                    const hue = (t * 360 + shift) % 360;
+                    return hslToRgb(hue, 1, 0.5);
+
+                case 'bands':
+                    const band = Math.floor(t * 10) / 10;
+                    const bandHue = (band * 360 + shift) % 360;
+                    return hslToRgb(bandHue, 1, 0.5);
+
+                case 'psychedelic':
+                    return {
+                        r: Math.floor(Math.sin(t * Math.PI * 4 + shift/60) * 127 + 128),
+                        g: Math.floor(Math.sin(t * Math.PI * 8 + shift/60 + 2) * 127 + 128),
+                        b: Math.floor(Math.sin(t * Math.PI * 16 + shift/60 + 4) * 127 + 128)
+                    };
+
+                case 'fire':
+                    const fireHue = ((1 - t) * 60 + shift) % 360;
+                    return hslToRgb(fireHue, 1, 0.3 + t * 0.4);
+
+                case 'ice':
+                    const iceHue = (180 + t * 60 + shift) % 360;
+                    return hslToRgb(iceHue, 0.8, 0.3 + t * 0.5);
+
+                default:
+                    return hslToRgb(t * 360, 1, 0.5);
+            }
+        }
+
+        // Mandelbrot calculation with smooth coloring
+        function mandelbrot(cx, cy, maxIter) {
+            let x = 0, y = 0;
+            let x2 = 0, y2 = 0;
+            let iter = 0;
+
+            while (x2 + y2 <= 4 && iter < maxIter) {
+                y = 2 * x * y + cy;
+                x = x2 - y2 + cx;
+                x2 = x * x;
+                y2 = y * y;
+                iter++;
+            }
+
+            if (iter < maxIter) {
+                // Smooth coloring
+                const log_zn = Math.log(x2 + y2) / 2;
+                const nu = Math.log(log_zn / Math.log(2)) / Math.log(2);
+                iter = iter + 1 - nu;
+            }
+
+            return iter;
+        }
+
+        // Julia calculation with smooth coloring
+        function julia(zx, zy, cx, cy, maxIter) {
+            let x = zx, y = zy;
+            let x2 = x * x, y2 = y * y;
+            let iter = 0;
+
+            while (x2 + y2 <= 4 && iter < maxIter) {
+                y = 2 * x * y + cy;
+                x = x2 - y2 + cx;
+                x2 = x * x;
+                y2 = y * y;
+                iter++;
+            }
+
+            if (iter < maxIter) {
+                const log_zn = Math.log(x2 + y2) / 2;
+                const nu = Math.log(log_zn / Math.log(2)) / Math.log(2);
+                iter = iter + 1 - nu;
+            }
+
+            return iter;
+        }
+
+        // Render fractal
+        function render() {
+            const startTime = performance.now();
+
+            const data = imageData.data;
+            const w = canvas.width;
+            const h = canvas.height;
+
+            const scale = 4.0 / (params.zoom * Math.min(w, h));
+            const offsetX = params.centerX;
+            const offsetY = params.centerY;
+
+            for (let py = 0; py < h; py++) {
+                for (let px = 0; px < w; px++) {
+                    const x = (px - w / 2) * scale + offsetX;
+                    const y = (py - h / 2) * scale + offsetY;
+
+                    let iter;
+                    if (params.type === 'mandelbrot') {
+                        iter = mandelbrot(x, y, params.maxIter);
+                    } else {
+                        iter = julia(x, y, params.juliaC.re, params.juliaC.im, params.maxIter);
+                    }
+
+                    const color = getColor(iter, params.maxIter, params.colorMode, params.colorShift);
+
+                    const idx = (py * w + px) * 4;
+                    data[idx] = color.r;
+                    data[idx + 1] = color.g;
+                    data[idx + 2] = color.b;
+                    data[idx + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+
+            const renderTime = Math.round(performance.now() - startTime);
+            document.getElementById('renderTime').textContent = `Render: ${renderTime}ms`;
+            const zoomExp = Math.log10(params.zoom);
+            document.getElementById('zoomLevel').textContent = `Zoom: ${params.zoom >= 1000 ? params.zoom.toExponential(2) : params.zoom.toFixed(2)}x`;
+
+            console.log(`Rendered ${params.type} at ${params.zoom.toFixed(2)}x zoom in ${renderTime}ms`);
+        }
+
+        // Event handlers
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartCenterX = params.centerX;
+            dragStartCenterY = params.centerY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const dx = (e.clientX - dragStartX) * dpr;
+                const dy = (e.clientY - dragStartY) * dpr;
+
+                const scale = 4.0 / (params.zoom * Math.min(canvas.width, canvas.height));
+
+                params.centerX = dragStartCenterX - dx * scale;
+                params.centerY = dragStartCenterY - dy * scale;
+
+                // Throttle rendering during drag
+                if (renderTimeout) clearTimeout(renderTimeout);
+                renderTimeout = setTimeout(() => render(), 50);
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (isDragging && Math.abs(e.clientX - dragStartX) < 5 && Math.abs(e.clientY - dragStartY) < 5) {
+                // It was a click, not a drag
+                const rect = canvas.getBoundingClientRect();
+                const px = (e.clientX - rect.left) * dpr;
+                const py = (e.clientY - rect.top) * dpr;
+
+                const w = canvas.width;
+                const h = canvas.height;
+                const scale = 4.0 / (params.zoom * Math.min(w, h));
+
+                const clickX = (px - w / 2) * scale + params.centerX;
+                const clickY = (py - h / 2) * scale + params.centerY;
+
+                if (e.shiftKey) {
+                    params.zoom /= 2;
+                } else {
+                    params.centerX = clickX;
+                    params.centerY = clickY;
+                    params.zoom *= 2;
+                }
+
+                render();
+            }
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+
+        // Wheel zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            const rect = canvas.getBoundingClientRect();
+            const px = (e.clientX - rect.left) * dpr;
+            const py = (e.clientY - rect.top) * dpr;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const scale = 4.0 / (params.zoom * Math.min(w, h));
+
+            const mouseX = (px - w / 2) * scale + params.centerX;
+            const mouseY = (py - h / 2) * scale + params.centerY;
+
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            params.zoom *= zoomFactor;
+
+            // Zoom towards mouse position
+            params.centerX = mouseX - (mouseX - params.centerX) / zoomFactor;
+            params.centerY = mouseY - (mouseY - params.centerY) / zoomFactor;
+
+            render();
+        }, { passive: false });
+
+        document.getElementById('fractalType').addEventListener('change', (e) => {
+            params.type = e.target.value;
+            render();
+        });
+
+        document.getElementById('presets').addEventListener('change', (e) => {
+            const idx = e.target.value;
+            if (idx !== '') {
+                const preset = presets[parseInt(idx)];
+                params.centerX = preset.x;
+                params.centerY = preset.y;
+                params.zoom = preset.zoom;
+                params.type = 'mandelbrot';
+                document.getElementById('fractalType').value = 'mandelbrot';
+                render();
+                e.target.value = '';
+            }
+        });
+
+        document.getElementById('iterations').addEventListener('input', (e) => {
+            params.maxIter = parseInt(e.target.value);
+            document.getElementById('iterValue').textContent = params.maxIter;
+            render();
+        });
+
+        document.getElementById('colorShift').addEventListener('input', (e) => {
+            params.colorShift = parseInt(e.target.value);
+            document.getElementById('colorValue').textContent = params.colorShift;
+            render();
+        });
+
+        document.getElementById('colorMode').addEventListener('change', (e) => {
+            params.colorMode = e.target.value;
+            render();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (animating) {
+                animating = false;
+                cancelAnimationFrame(animationFrame);
+                document.getElementById('animateBtn').textContent = 'Auto Zoom';
+            }
+            params.centerX = params.type === 'mandelbrot' ? -0.5 : 0;
+            params.centerY = 0;
+            params.zoom = 1;
+            render();
+        });
+
+        document.getElementById('animateBtn').addEventListener('click', () => {
+            animating = !animating;
+            if (animating) {
+                document.getElementById('animateBtn').textContent = 'Stop Zoom';
+                animate();
+            } else {
+                document.getElementById('animateBtn').textContent = 'Auto Zoom';
+                cancelAnimationFrame(animationFrame);
+            }
+        });
+
+        function animate() {
+            if (!animating) return;
+
+            params.zoom *= 1.02;
+            params.colorShift = (params.colorShift + 1) % 360;
+            document.getElementById('colorValue').textContent = params.colorShift;
+            document.getElementById('colorShift').value = params.colorShift;
+
+            render();
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            render();
+        });
+
+        // Initialize
+        resizeCanvas();
+        render();
+
+        console.log('🌀 Fractal Explorer ready. Click to zoom!');
+    </script>
+</body>
+</html>

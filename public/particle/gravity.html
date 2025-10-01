@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Well</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0a;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 20, 30, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            font-size: 13px;
+            max-width: 280px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .controls h2 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #f39c12;
+        }
+        .control-group {
+            margin-bottom: 12px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #f39c12;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #f39c12;
+            cursor: pointer;
+            border: none;
+        }
+        .value {
+            float: right;
+            color: #f39c12;
+            font-weight: 600;
+        }
+        .info {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .nav {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .nav a {
+            background: rgba(20, 20, 30, 0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 10px 16px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s;
+        }
+        .nav a:hover {
+            background: rgba(40, 40, 50, 0.9);
+            border-color: #f39c12;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <h2>Gravity Well</h2>
+        <div class="control-group">
+            <label>Gravity <span class="value" id="gravityVal">0.5</span></label>
+            <input type="range" id="gravity" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+        <div class="control-group">
+            <label>Bounce <span class="value" id="bounceVal">0.8</span></label>
+            <input type="range" id="bounce" min="0.3" max="0.99" step="0.01" value="0.8">
+        </div>
+        <div class="control-group">
+            <label>Particles <span class="value" id="countVal">2000</span></label>
+            <input type="range" id="count" min="500" max="4000" step="100" value="2000">
+        </div>
+        <div class="info">
+            Click to create attractors<br>
+            Right-click to create repellers
+        </div>
+    </div>
+
+    <div class="nav">
+        <a href="index.html">Flocking</a>
+        <a href="cellular.html">Cellular Automata</a>
+        <a href="flow.html">Flow Field</a>
+    </div>
+
+    <script>
+        console.log('Gravity Well initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        let params = {
+            gravity: 0.5,
+            bounce: 0.8,
+            count: 2000
+        };
+
+        // Controls
+        ['gravity', 'bounce', 'count'].forEach(id => {
+            const input = document.getElementById(id);
+            const display = document.getElementById(id + 'Val');
+            input.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                display.textContent = val.toFixed(id === 'count' ? 0 : 2);
+                params[id] = val;
+                if (id === 'count') {
+                    resetParticles();
+                }
+            });
+        });
+
+        class Attractor {
+            constructor(x, y, strength) {
+                this.x = x;
+                this.y = y;
+                this.strength = strength;
+                this.radius = Math.abs(strength) * 30;
+                this.life = 1;
+                this.fadeRate = 0.005;
+            }
+
+            update() {
+                this.life -= this.fadeRate;
+            }
+
+            draw() {
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.radius
+                );
+
+                const color = this.strength > 0 ? '243, 156, 18' : '231, 76, 60';
+                gradient.addColorStop(0, `rgba(${color}, ${this.life * 0.4})`);
+                gradient.addColorStop(0.5, `rgba(${color}, ${this.life * 0.2})`);
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(
+                    this.x - this.radius,
+                    this.y - this.radius,
+                    this.radius * 2,
+                    this.radius * 2
+                );
+
+                // Core
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${color}, ${this.life})`;
+                ctx.fill();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        class Particle {
+            constructor() {
+                this.pos = {
+                    x: Math.random() * width,
+                    y: Math.random() * height
+                };
+                this.vel = {
+                    x: (Math.random() - 0.5) * 2,
+                    y: (Math.random() - 0.5) * 2
+                };
+                this.hue = Math.random() * 60 + 30;
+                this.size = Math.random() * 2 + 1;
+                this.trail = [];
+                this.trailLength = 10;
+            }
+
+            applyForce(fx, fy) {
+                this.vel.x += fx;
+                this.vel.y += fy;
+            }
+
+            update() {
+                this.trail.push({ x: this.pos.x, y: this.pos.y });
+                if (this.trail.length > this.trailLength) {
+                    this.trail.shift();
+                }
+
+                this.pos.x += this.vel.x;
+                this.pos.y += this.vel.y;
+
+                // Bounce off walls
+                if (this.pos.x < 0 || this.pos.x > width) {
+                    this.vel.x *= -params.bounce;
+                    this.pos.x = this.pos.x < 0 ? 0 : width;
+                }
+                if (this.pos.y < 0 || this.pos.y > height) {
+                    this.vel.y *= -params.bounce;
+                    this.pos.y = this.pos.y < 0 ? 0 : height;
+                }
+
+                // Damping
+                this.vel.x *= 0.99;
+                this.vel.y *= 0.99;
+
+                // Speed-based hue
+                const speed = Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y);
+                this.hue = 30 + Math.min(speed * 10, 50);
+            }
+
+            draw() {
+                // Trail
+                for (let i = 0; i < this.trail.length - 1; i++) {
+                    const alpha = (i / this.trail.length) * 0.3;
+                    ctx.strokeStyle = `hsla(${this.hue}, 80%, 60%, ${alpha})`;
+                    ctx.lineWidth = this.size * (i / this.trail.length);
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[i].x, this.trail[i].y);
+                    ctx.lineTo(this.trail[i + 1].x, this.trail[i + 1].y);
+                    ctx.stroke();
+                }
+
+                // Particle
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, 0.9)`;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = `hsla(${this.hue}, 80%, 60%, 0.8)`;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        let particles = [];
+        let attractors = [];
+
+        function resetParticles() {
+            particles = [];
+            for (let i = 0; i < params.count; i++) {
+                particles.push(new Particle());
+            }
+            console.log(`Created ${params.count} particles`);
+        }
+
+        resetParticles();
+
+        // Mouse interaction
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const strength = e.button === 2 ? -1 : 1; // Right-click for repeller
+            attractors.push(new Attractor(e.clientX, e.clientY, strength));
+        });
+
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function animate() {
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw attractors
+            attractors = attractors.filter(a => !a.isDead());
+            for (let attractor of attractors) {
+                attractor.update();
+                attractor.draw();
+
+                // Apply forces to particles
+                for (let particle of particles) {
+                    const dx = attractor.x - particle.pos.x;
+                    const dy = attractor.y - particle.pos.y;
+                    const distSq = dx * dx + dy * dy;
+                    const dist = Math.sqrt(distSq);
+
+                    if (dist > 1) {
+                        const force = (attractor.strength * params.gravity * 1000) / distSq;
+                        const fx = (dx / dist) * force;
+                        const fy = (dy / dist) * force;
+                        particle.applyForce(fx, fy);
+                    }
+                }
+            }
+
+            // Update and draw particles
+            for (let particle of particles) {
+                particle.update();
+                particle.draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+        console.log('Gravity simulation running');
+    </script>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Journey - COSMOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        #canvas {
+            display: block;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #4FC3F7;
+            letter-spacing: 1px;
+        }
+        .metric {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .value {
+            color: #FFA726;
+            font-weight: bold;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        #nav {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+        <h1>STAR JOURNEY</h1>
+        <div class="metric">Speed: <span class="value" id="speed">0.0</span> c</div>
+        <div class="metric">Distance: <span class="value" id="distance">0</span> ly</div>
+        <div class="metric">Stars passed: <span class="value" id="starsPassed">0</span></div>
+    </div>
+
+    <div id="instructions">
+        ARROW KEYS or WASD to navigate | SPACE to boost
+    </div>
+
+    <div id="nav">
+        <button onclick="location.href='index.html'">Gravity Lab</button>
+        <button onclick="location.href='solar.html'">Solar System</button>
+        <button onclick="location.href='galaxy.html'">Galaxy</button>
+    </div>
+
+    <script>
+        console.log('🚀 Star Journey initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 2;
+                this.y = (Math.random() - 0.5) * height * 2;
+                this.z = Math.random() * 2000;
+                this.prevX = this.x;
+                this.prevY = this.y;
+                this.prevZ = this.z;
+
+                // Random color (most white, some colored)
+                const rand = Math.random();
+                if (rand < 0.7) {
+                    this.color = '#ffffff';
+                } else if (rand < 0.85) {
+                    this.color = '#4FC3F7'; // Blue
+                } else if (rand < 0.95) {
+                    this.color = '#FFA726'; // Orange
+                } else {
+                    this.color = '#EF5350'; // Red
+                }
+            }
+
+            update(speed, vx, vy) {
+                this.prevX = this.x;
+                this.prevY = this.y;
+                this.prevZ = this.z;
+
+                this.z -= speed;
+                this.x -= vx * 5;
+                this.y -= vy * 5;
+
+                if (this.z < 1) {
+                    this.reset();
+                    this.z = 2000;
+                    return true;
+                }
+
+                if (Math.abs(this.x) > width * 2 || Math.abs(this.y) > height * 2) {
+                    this.reset();
+                }
+
+                return false;
+            }
+
+            draw() {
+                const x = (this.x / this.z) * width + width / 2;
+                const y = (this.y / this.z) * height + height / 2;
+                const prevX = (this.prevX / this.prevZ) * width + width / 2;
+                const prevY = (this.prevY / this.prevZ) * height + height / 2;
+
+                const size = (1 - this.z / 2000) * 3;
+
+                // Trail
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = size;
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                // Star
+                const brightness = 1 - this.z / 2000;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = brightness;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        const stars = [];
+        const numStars = 1000;
+
+        for (let i = 0; i < numStars; i++) {
+            stars.push(new Star());
+        }
+
+        let baseSpeed = 5;
+        let speed = baseSpeed;
+        let vx = 0;
+        let vy = 0;
+        let distance = 0;
+        let starsPassed = 0;
+
+        const keys = {};
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') {
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Input handling
+            const acceleration = 0.5;
+            const maxVelocity = 10;
+            const friction = 0.95;
+
+            if (keys['arrowup'] || keys['w']) {
+                vy = Math.max(vy - acceleration, -maxVelocity);
+            }
+            if (keys['arrowdown'] || keys['s']) {
+                vy = Math.min(vy + acceleration, maxVelocity);
+            }
+            if (keys['arrowleft'] || keys['a']) {
+                vx = Math.max(vx - acceleration, -maxVelocity);
+            }
+            if (keys['arrowright'] || keys['d']) {
+                vx = Math.min(vx + acceleration, maxVelocity);
+            }
+
+            // Boost
+            if (keys[' ']) {
+                speed = baseSpeed * 4;
+            } else {
+                speed = baseSpeed + Math.abs(vx) * 0.5 + Math.abs(vy) * 0.5;
+            }
+
+            // Apply friction
+            vx *= friction;
+            vy *= friction;
+
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw stars
+            stars.forEach(star => {
+                const passed = star.update(speed, vx, vy);
+                if (passed) starsPassed++;
+                star.draw();
+            });
+
+            // Update distance
+            distance += speed * 0.01;
+
+            // Update HUD
+            document.getElementById('speed').textContent = (speed / 10).toFixed(2);
+            document.getElementById('distance').textContent = Math.floor(distance);
+            document.getElementById('starsPassed').textContent = starsPassed;
+
+            // Warp effect in center when boosting
+            if (keys[' ']) {
+                const gradient = ctx.createRadialGradient(
+                    width / 2, height / 2, 0,
+                    width / 2, height / 2, 150
+                );
+                gradient.addColorStop(0, 'rgba(100, 200, 255, 0.1)');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+            }
+        }
+
+        animate();
+        console.log('✨ Star field journey started');
+    </script>
+</body>
+</html>

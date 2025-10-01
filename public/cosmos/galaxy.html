@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Generator - COSMOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        #canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #4FC3F7;
+            letter-spacing: 1px;
+        }
+        .control {
+            margin: 8px 0;
+            font-size: 11px;
+        }
+        label {
+            display: block;
+            margin-bottom: 3px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        input[type="range"] {
+            width: 200px;
+            margin: 5px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 3px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        #nav {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        .nav-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        }
+        .nav-btn:hover {
+            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="controls">
+        <h1>GALAXY GENERATOR</h1>
+        <div class="control">
+            <label>Arms: <span id="armsVal">4</span></label>
+            <input type="range" id="arms" min="2" max="8" value="4">
+        </div>
+        <div class="control">
+            <label>Stars: <span id="starsVal">5000</span></label>
+            <input type="range" id="stars" min="1000" max="10000" step="500" value="5000">
+        </div>
+        <div class="control">
+            <label>Spin: <span id="spinVal">2.5</span></label>
+            <input type="range" id="spin" min="0" max="5" step="0.1" value="2.5">
+        </div>
+        <button onclick="generate()">✨ Generate New</button>
+        <button onclick="toggleRotation()">🔄 Rotation</button>
+    </div>
+
+    <div id="nav">
+        <button class="nav-btn" onclick="location.href='index.html'">Gravity Lab</button>
+        <button class="nav-btn" onclick="location.href='solar.html'">Solar System</button>
+        <button class="nav-btn" onclick="location.href='journey.html'">Star Journey</button>
+    </div>
+
+    <script>
+        console.log('🌌 Galaxy Generator initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            generate();
+        });
+
+        let galaxyStars = [];
+        let rotation = 0;
+        let rotating = true;
+
+        // Controls
+        const armsSlider = document.getElementById('arms');
+        const starsSlider = document.getElementById('stars');
+        const spinSlider = document.getElementById('spin');
+
+        armsSlider.addEventListener('input', (e) => {
+            document.getElementById('armsVal').textContent = e.target.value;
+            generate();
+        });
+
+        starsSlider.addEventListener('input', (e) => {
+            document.getElementById('starsVal').textContent = e.target.value;
+            generate();
+        });
+
+        spinSlider.addEventListener('input', (e) => {
+            document.getElementById('spinVal').textContent = e.target.value;
+            generate();
+        });
+
+        function toggleRotation() {
+            rotating = !rotating;
+        }
+
+        function generate() {
+            const numArms = parseInt(armsSlider.value);
+            const numStars = parseInt(starsSlider.value);
+            const spinFactor = parseFloat(spinSlider.value);
+
+            galaxyStars = [];
+
+            // Generate spiral galaxy
+            for (let i = 0; i < numStars; i++) {
+                const arm = Math.floor(Math.random() * numArms);
+                const armAngle = (arm / numArms) * Math.PI * 2;
+
+                const distance = Math.pow(Math.random(), 0.5) * 300;
+                const spread = (Math.random() - 0.5) * 40 * (distance / 300);
+                const angle = armAngle + (distance / 300) * spinFactor + (Math.random() - 0.5) * 0.5;
+
+                const x = Math.cos(angle) * distance + spread * Math.cos(angle + Math.PI / 2);
+                const y = Math.sin(angle) * distance + spread * Math.sin(angle + Math.PI / 2);
+
+                const size = Math.random() * 2 + 0.5;
+                const brightness = Math.random() * 0.8 + 0.2;
+
+                // Color based on position
+                let color;
+                if (distance < 50) {
+                    color = `rgba(255, 255, 200, ${brightness})`; // Core: yellow-white
+                } else if (distance < 150) {
+                    color = `rgba(150, 200, 255, ${brightness})`; // Mid: blue
+                } else {
+                    color = `rgba(100, 150, 255, ${brightness * 0.7})`; // Outer: dim blue
+                }
+
+                galaxyStars.push({ x, y, size, color, brightness });
+            }
+
+            // Add dense core
+            for (let i = 0; i < 500; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.pow(Math.random(), 2) * 30;
+                const x = Math.cos(angle) * distance;
+                const y = Math.sin(angle) * distance;
+                const size = Math.random() * 3 + 1;
+                const brightness = Math.random() * 0.5 + 0.5;
+                const color = `rgba(255, 240, 200, ${brightness})`;
+
+                galaxyStars.push({ x, y, size, color, brightness });
+            }
+
+            console.log(`🌟 Generated galaxy with ${numStars} stars, ${numArms} arms`);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Background stars
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            for (let i = 0; i < 200; i++) {
+                const x = (i * 137.508) % width;
+                const y = (i * 197.234) % height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            if (rotating) {
+                rotation += 0.001;
+            }
+
+            // Draw galaxy
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotation);
+
+            galaxyStars.forEach(star => {
+                // Glow
+                const gradient = ctx.createRadialGradient(
+                    star.x, star.y, 0,
+                    star.x, star.y, star.size * 3
+                );
+                gradient.addColorStop(0, star.color);
+                gradient.addColorStop(1, 'transparent');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size * 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                ctx.fillStyle = star.color;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.restore();
+        }
+
+        generate();
+        animate();
+        console.log('✨ Galaxy rendering started');
+    </script>
+</body>
+</html>

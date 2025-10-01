@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lens Simulator - PRISM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(45deg, #fff, #ff6b9d, #c471ed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+        nav a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+        }
+        nav a:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+        #canvas {
+            flex: 1;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0c29 100%);
+        }
+        .controls {
+            width: 280px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        .control-group {
+            margin-bottom: 25px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+        }
+        .value-display {
+            float: right;
+            color: #fff;
+            font-weight: 600;
+        }
+        .lens-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .lens-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.85em;
+        }
+        .lens-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5em; }
+            .main { flex-direction: column; }
+            .controls { width: 100%; max-height: 250px; border-left: none; border-top: 1px solid rgba(255,255,255,0.1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lens Simulator</h1>
+            <nav>
+                <a href="index.html">Refraction</a>
+                <a href="color-mixer.html">Color Mixer</a>
+                <a href="spectrum.html">Spectrum</a>
+                <a href="../index.html">Hub</a>
+            </nav>
+        </header>
+        <div class="main">
+            <canvas id="canvas"></canvas>
+            <div class="controls">
+                <div class="lens-type-selector">
+                    <button class="lens-btn active" data-type="converging">Converging</button>
+                    <button class="lens-btn" data-type="diverging">Diverging</button>
+                </div>
+                <div class="control-group">
+                    <label>Focal Length <span class="value-display" id="focalVal">200px</span></label>
+                    <input type="range" id="focalLength" min="50" max="400" value="200">
+                </div>
+                <div class="control-group">
+                    <label>Ray Count <span class="value-display" id="rayCountVal">5</span></label>
+                    <input type="range" id="rayCount" min="3" max="11" step="2" value="5">
+                </div>
+                <div class="control-group">
+                    <label>Ray Angle <span class="value-display" id="angleVal">0°</span></label>
+                    <input type="range" id="angle" min="-30" max="30" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Lens Width <span class="value-display" id="widthVal">200px</span></label>
+                    <input type="range" id="lensWidth" min="100" max="300" value="200">
+                </div>
+                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; font-size: 0.85em; line-height: 1.5;">
+                    <div id="lensInfo">Converging lens focuses parallel rays to a single focal point.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        console.log('Lens Simulator initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height, centerX, centerY;
+
+        function resize() {
+            width = canvas.width = canvas.offsetWidth;
+            height = canvas.height = canvas.offsetHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        let lensType = 'converging';
+        let focalLength = 200;
+        let rayCount = 5;
+        let angle = 0;
+        let lensWidth = 200;
+
+        const focalInput = document.getElementById('focalLength');
+        const rayCountInput = document.getElementById('rayCount');
+        const angleInput = document.getElementById('angle');
+        const widthInput = document.getElementById('lensWidth');
+
+        focalInput.addEventListener('input', e => {
+            focalLength = parseInt(e.target.value);
+            document.getElementById('focalVal').textContent = focalLength + 'px';
+        });
+
+        rayCountInput.addEventListener('input', e => {
+            rayCount = parseInt(e.target.value);
+            document.getElementById('rayCountVal').textContent = rayCount;
+        });
+
+        angleInput.addEventListener('input', e => {
+            angle = parseInt(e.target.value);
+            document.getElementById('angleVal').textContent = angle + '°';
+        });
+
+        widthInput.addEventListener('input', e => {
+            lensWidth = parseInt(e.target.value);
+            document.getElementById('widthVal').textContent = lensWidth + 'px';
+        });
+
+        document.querySelectorAll('.lens-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.lens-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                lensType = btn.dataset.type;
+
+                const info = lensType === 'converging'
+                    ? 'Converging lens focuses parallel rays to a single focal point.'
+                    : 'Diverging lens spreads rays outward as if from a virtual focal point.';
+                document.getElementById('lensInfo').textContent = info;
+                console.log(`Lens type changed to: ${lensType}`);
+            });
+        });
+
+        function drawLens() {
+            const lensX = centerX;
+            const halfHeight = lensWidth / 2;
+
+            ctx.save();
+
+            if (lensType === 'converging') {
+                // Convex lens
+                ctx.beginPath();
+                ctx.moveTo(lensX, centerY - halfHeight);
+                ctx.quadraticCurveTo(lensX + 30, centerY, lensX, centerY + halfHeight);
+                ctx.quadraticCurveTo(lensX - 30, centerY, lensX, centerY - halfHeight);
+                ctx.closePath();
+            } else {
+                // Concave lens
+                ctx.beginPath();
+                ctx.moveTo(lensX, centerY - halfHeight);
+                ctx.quadraticCurveTo(lensX - 30, centerY, lensX, centerY + halfHeight);
+                ctx.quadraticCurveTo(lensX + 30, centerY, lensX, centerY - halfHeight);
+                ctx.closePath();
+            }
+
+            const gradient = ctx.createLinearGradient(lensX - 30, 0, lensX + 30, 0);
+            gradient.addColorStop(0, 'rgba(100, 150, 255, 0.2)');
+            gradient.addColorStop(0.5, 'rgba(150, 200, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(100, 150, 255, 0.2)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(200, 230, 255, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Draw focal points
+            ctx.fillStyle = 'rgba(255, 100, 100, 0.6)';
+            ctx.beginPath();
+            ctx.arc(centerX + focalLength, centerY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX - focalLength, centerY, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawRays() {
+            const spacing = lensWidth / (rayCount + 1);
+            const angleRad = angle * Math.PI / 180;
+
+            for (let i = 1; i <= rayCount; i++) {
+                const startX = 50;
+                const rayY = centerY - (lensWidth / 2) + (i * spacing);
+                const startY = rayY + Math.tan(angleRad) * (centerX - startX);
+
+                ctx.strokeStyle = 'rgba(100, 200, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(100, 200, 255, 0.5)';
+
+                // Ray to lens
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(centerX, rayY);
+                ctx.stroke();
+
+                // Ray after lens
+                if (lensType === 'converging') {
+                    const focalX = centerX + focalLength;
+                    const focalY = centerY;
+
+                    const dirX = focalX - centerX;
+                    const dirY = focalY - rayY;
+                    const len = Math.sqrt(dirX * dirX + dirY * dirY);
+                    const normalX = dirX / len;
+                    const normalY = dirY / len;
+
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, rayY);
+                    ctx.lineTo(centerX + normalX * 500, rayY + normalY * 500);
+                    ctx.stroke();
+                } else {
+                    // Diverging
+                    const focalX = centerX - focalLength;
+                    const focalY = centerY;
+
+                    const dirX = centerX - focalX;
+                    const dirY = rayY - focalY;
+                    const len = Math.sqrt(dirX * dirX + dirY * dirY);
+                    const normalX = dirX / len;
+                    const normalY = dirY / len;
+
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, rayY);
+                    ctx.lineTo(centerX + normalX * 500, rayY + normalY * 500);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.shadowBlur = 0;
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.8)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw optical axis
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            drawRays();
+            drawLens();
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+        console.log('Lens simulation running at 60fps');
+    </script>
+</body>
+</html>

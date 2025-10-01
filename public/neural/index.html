@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Trainer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        .home-link:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(-5px);
+        }
+        .subtitle {
+            text-align: center;
+            opacity: 0.9;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+        .hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.5em;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        .hint.hidden {
+            opacity: 0;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .canvas-container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+        }
+        canvas {
+            display: block;
+            background: #0a0a15;
+            border-radius: 10px;
+            cursor: crosshair;
+            width: 100%;
+            height: 600px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        .controls {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .class-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .class-btn {
+            padding: 15px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .class-btn.active {
+            border-color: white;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+        .class-btn.red { background: #e74c3c; }
+        .class-btn.blue { background: #3498db; }
+        .stats {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .nav-links button {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px;
+            font-size: 0.9em;
+        }
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            canvas {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="home-link">← Hub</a>
+    <div class="container">
+        <h1>Neural Network Trainer</h1>
+        <p class="subtitle">Click to add training points. Watch the network learn in real-time.</p>
+
+        <div class="main-grid">
+            <div class="canvas-container">
+                <canvas id="canvas"></canvas>
+                <div class="hint" id="hint">Click to add points</div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Select Class:</label>
+                    <div class="class-selector">
+                        <button class="class-btn red active" onclick="setClass(0)">Red Class</button>
+                        <button class="class-btn blue" onclick="setClass(1)">Blue Class</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Learning Rate: <span id="lrValue">0.1</span></label>
+                    <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1">
+                </div>
+
+                <div class="control-group">
+                    <label>Hidden Neurons: <span id="neuronValue">8</span></label>
+                    <input type="range" id="hiddenNeurons" min="2" max="16" step="1" value="8">
+                </div>
+
+                <button onclick="toggleTraining()">Start Training</button>
+                <button onclick="loadDemo()">Load Demo</button>
+                <button onclick="clearData()">Clear All</button>
+                <button onclick="reset()">Reset Network</button>
+
+                <div class="stats">
+                    <div class="stat-row">
+                        <span>Epoch:</span>
+                        <span id="epoch">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Loss:</span>
+                        <span id="loss">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Accuracy:</span>
+                        <span id="accuracy">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Points:</span>
+                        <span id="points">0</span>
+                    </div>
+                </div>
+
+                <div class="nav-links">
+                    <button onclick="location.href='perceptron.html'">Perceptron</button>
+                    <button onclick="location.href='activations.html'">Activations</button>
+                    <button onclick="location.href='digits.html'">Digits</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Neural Network Trainer initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Data structures
+        let trainingData = [];
+        let currentClass = 0;
+        let isTraining = false;
+        let epoch = 0;
+        let newPoints = []; // For animation
+
+        // Neural network
+        class NeuralNetwork {
+            constructor(inputSize, hiddenSize, outputSize) {
+                this.inputSize = inputSize;
+                this.hiddenSize = hiddenSize;
+                this.outputSize = outputSize;
+
+                // Initialize weights randomly
+                this.w1 = Array(inputSize).fill(0).map(() =>
+                    Array(hiddenSize).fill(0).map(() => Math.random() * 2 - 1)
+                );
+                this.b1 = Array(hiddenSize).fill(0).map(() => Math.random() * 2 - 1);
+
+                this.w2 = Array(hiddenSize).fill(0).map(() =>
+                    Array(outputSize).fill(0).map(() => Math.random() * 2 - 1)
+                );
+                this.b2 = Array(outputSize).fill(0).map(() => Math.random() * 2 - 1);
+            }
+
+            sigmoid(x) {
+                return 1 / (1 + Math.exp(-x));
+            }
+
+            sigmoidDerivative(x) {
+                return x * (1 - x);
+            }
+
+            forward(input) {
+                // Hidden layer
+                this.hidden = Array(this.hiddenSize).fill(0);
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    let sum = this.b1[j];
+                    for (let i = 0; i < this.inputSize; i++) {
+                        sum += input[i] * this.w1[i][j];
+                    }
+                    this.hidden[j] = this.sigmoid(sum);
+                }
+
+                // Output layer
+                this.output = Array(this.outputSize).fill(0);
+                for (let k = 0; k < this.outputSize; k++) {
+                    let sum = this.b2[k];
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        sum += this.hidden[j] * this.w2[j][k];
+                    }
+                    this.output[k] = this.sigmoid(sum);
+                }
+
+                return this.output;
+            }
+
+            train(input, target, learningRate) {
+                // Forward pass
+                const output = this.forward(input);
+
+                // Calculate output layer error
+                const outputError = Array(this.outputSize).fill(0);
+                for (let k = 0; k < this.outputSize; k++) {
+                    outputError[k] = (target[k] - output[k]) * this.sigmoidDerivative(output[k]);
+                }
+
+                // Calculate hidden layer error
+                const hiddenError = Array(this.hiddenSize).fill(0);
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    let error = 0;
+                    for (let k = 0; k < this.outputSize; k++) {
+                        error += outputError[k] * this.w2[j][k];
+                    }
+                    hiddenError[j] = error * this.sigmoidDerivative(this.hidden[j]);
+                }
+
+                // Update weights and biases
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    for (let k = 0; k < this.outputSize; k++) {
+                        this.w2[j][k] += learningRate * outputError[k] * this.hidden[j];
+                    }
+                }
+                for (let k = 0; k < this.outputSize; k++) {
+                    this.b2[k] += learningRate * outputError[k];
+                }
+
+                for (let i = 0; i < this.inputSize; i++) {
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        this.w1[i][j] += learningRate * hiddenError[j] * input[i];
+                    }
+                }
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    this.b1[j] += learningRate * hiddenError[j];
+                }
+
+                // Calculate loss
+                let loss = 0;
+                for (let k = 0; k < this.outputSize; k++) {
+                    loss += Math.pow(target[k] - output[k], 2);
+                }
+                return loss / this.outputSize;
+            }
+        }
+
+        let nn = new NeuralNetwork(2, 8, 2);
+
+        // Event listeners
+        document.getElementById('learningRate').addEventListener('input', (e) => {
+            document.getElementById('lrValue').textContent = e.target.value;
+        });
+
+        document.getElementById('hiddenNeurons').addEventListener('input', (e) => {
+            document.getElementById('neuronValue').textContent = e.target.value;
+            if (trainingData.length === 0) {
+                nn = new NeuralNetwork(2, parseInt(e.target.value), 2);
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / canvas.width;
+            const y = (e.clientY - rect.top) / canvas.height;
+
+            const point = {
+                x: x,
+                y: y,
+                class: currentClass,
+                age: 0
+            };
+
+            trainingData.push(point);
+            newPoints.push(point);
+
+            document.getElementById('points').textContent = trainingData.length;
+            document.getElementById('hint').classList.add('hidden');
+            console.log(`Added point: (${x.toFixed(2)}, ${y.toFixed(2)}), class: ${currentClass}`);
+        });
+
+        function setClass(classIndex) {
+            currentClass = classIndex;
+            document.querySelectorAll('.class-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === classIndex);
+            });
+        }
+
+        function toggleTraining() {
+            if (trainingData.length < 2) {
+                alert('Add at least 2 training points!');
+                return;
+            }
+
+            isTraining = !isTraining;
+            const btn = event.target;
+            btn.textContent = isTraining ? 'Stop Training' : 'Start Training';
+
+            if (isTraining) {
+                console.log('Training started');
+            } else {
+                console.log('Training paused');
+            }
+        }
+
+        function clearData() {
+            trainingData = [];
+            epoch = 0;
+            document.getElementById('points').textContent = '0';
+            document.getElementById('epoch').textContent = '0';
+            document.getElementById('loss').textContent = '-';
+            document.getElementById('accuracy').textContent = '-';
+            console.log('Data cleared');
+        }
+
+        function reset() {
+            const hiddenSize = parseInt(document.getElementById('hiddenNeurons').value);
+            nn = new NeuralNetwork(2, hiddenSize, 2);
+            epoch = 0;
+            document.getElementById('epoch').textContent = '0';
+            document.getElementById('loss').textContent = '-';
+            document.getElementById('accuracy').textContent = '-';
+            console.log('Network reset');
+        }
+
+        function loadDemo() {
+            clearData();
+            // Create a spiral pattern
+            const samples = 20;
+            for (let i = 0; i < samples; i++) {
+                const angle = (i / samples) * Math.PI * 2;
+                const radius = 0.2 + (i / samples) * 0.2;
+
+                // Red class - outer spiral
+                trainingData.push({
+                    x: 0.5 + Math.cos(angle) * radius,
+                    y: 0.5 + Math.sin(angle) * radius,
+                    class: 0,
+                    age: 30
+                });
+
+                // Blue class - inner region
+                trainingData.push({
+                    x: 0.5 + Math.cos(angle + Math.PI) * (radius * 0.5),
+                    y: 0.5 + Math.sin(angle + Math.PI) * (radius * 0.5),
+                    class: 1,
+                    age: 30
+                });
+            }
+
+            document.getElementById('points').textContent = trainingData.length;
+            document.getElementById('hint').classList.add('hidden');
+            console.log('Demo data loaded:', trainingData.length, 'points');
+        }
+
+        // Training loop
+        function trainStep() {
+            if (!isTraining || trainingData.length === 0) return;
+
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            let totalLoss = 0;
+            let correct = 0;
+
+            // Train multiple times per step for faster learning
+            for (let iter = 0; iter < 3; iter++) {
+                for (const point of trainingData) {
+                    const input = [point.x, point.y];
+                    const target = point.class === 0 ? [1, 0] : [0, 1];
+                    totalLoss += nn.train(input, target, learningRate);
+                }
+            }
+
+            // Check accuracy
+            for (const point of trainingData) {
+                const input = [point.x, point.y];
+                const output = nn.forward(input);
+                const predicted = output[0] > output[1] ? 0 : 1;
+                if (predicted === point.class) correct++;
+            }
+
+            epoch++;
+            const avgLoss = totalLoss / (trainingData.length * 3);
+            const accuracy = (correct / trainingData.length * 100).toFixed(1);
+
+            document.getElementById('epoch').textContent = epoch;
+            document.getElementById('loss').textContent = avgLoss.toFixed(4);
+            document.getElementById('accuracy').textContent = accuracy + '%';
+
+            if (epoch % 10 === 0) {
+                console.log(`Epoch ${epoch}: Loss=${avgLoss.toFixed(4)}, Accuracy=${accuracy}%`);
+            }
+        }
+
+        // Render loop
+        function render() {
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw subtle grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            for (let x = 0; x <= canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw decision boundary with smooth gradients
+            const resolution = 6;
+            for (let x = 0; x < canvas.width; x += resolution) {
+                for (let y = 0; y < canvas.height; y += resolution) {
+                    const input = [x / canvas.width, y / canvas.height];
+                    const output = nn.forward(input);
+                    const value = output[0] - output[1];
+                    const confidence = Math.min(Math.abs(value) * 1.5, 1);
+
+                    if (value > 0) {
+                        ctx.fillStyle = `rgba(231, 76, 60, ${confidence * 0.35})`;
+                    } else {
+                        ctx.fillStyle = `rgba(52, 152, 219, ${confidence * 0.35})`;
+                    }
+                    ctx.fillRect(x, y, resolution, resolution);
+                }
+            }
+
+            // Draw decision boundary line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let firstPoint = true;
+            for (let x = 0; x < canvas.width; x += 2) {
+                for (let y = 0; y < canvas.height; y += 2) {
+                    const input = [x / canvas.width, y / canvas.height];
+                    const output = nn.forward(input);
+                    const value = output[0] - output[1];
+
+                    if (Math.abs(value) < 0.05) {
+                        if (firstPoint) {
+                            ctx.moveTo(x, y);
+                            firstPoint = false;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // Update new point animations
+            newPoints = newPoints.filter(p => {
+                p.age = (p.age || 0) + 1;
+                return p.age < 30;
+            });
+
+            // Draw training points with glow
+            for (const point of trainingData) {
+                const x = point.x * canvas.width;
+                const y = point.y * canvas.height;
+                const color = point.class === 0 ? '#e74c3c' : '#3498db';
+
+                const isNew = newPoints.includes(point);
+                const pulseScale = isNew ? 1 + Math.sin(point.age * 0.3) * 0.3 : 1;
+                const radius = 10 * pulseScale;
+
+                // Glow effect
+                ctx.shadowBlur = isNew ? 25 : 15;
+                ctx.shadowColor = color;
+
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+            }
+
+            // Training indicator
+            if (isTraining) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(102, 126, 234, 0.8)';
+                ctx.font = '14px -apple-system, sans-serif';
+                ctx.fillText('Training...', 10, canvas.height - 10);
+
+                // Animated progress indicator
+                const time = Date.now() * 0.003;
+                for (let i = 0; i < 3; i++) {
+                    const alpha = Math.abs(Math.sin(time + i * 0.5));
+                    ctx.fillStyle = `rgba(102, 126, 234, ${alpha})`;
+                    ctx.fillRect(100 + i * 15, canvas.height - 18, 10, 10);
+                }
+                ctx.restore();
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Main loop
+        function loop() {
+            trainStep();
+            setTimeout(loop, 100);
+        }
+
+        render();
+        loop();
+
+        console.log('Neural network ready. Add points or load demo to begin.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrum Explorer - PRISM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(45deg, #fff, #ff6b9d, #c471ed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+        nav a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+        }
+        nav a:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+        #canvas {
+            flex: 1;
+            cursor: crosshair;
+        }
+        .sidebar {
+            width: 300px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        .wavelength-display {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .wavelength-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .color-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .color-info h3 {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .color-info p {
+            font-size: 0.9em;
+            line-height: 1.5;
+            color: rgba(255,255,255,0.8);
+        }
+        .legend {
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            margin-right: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5em; }
+            .main { flex-direction: column; }
+            .sidebar { width: 100%; max-height: 300px; border-left: none; border-top: 1px solid rgba(255,255,255,0.1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Spectrum Explorer</h1>
+            <nav>
+                <a href="index.html">Refraction</a>
+                <a href="color-mixer.html">Color Mixer</a>
+                <a href="lens.html">Lens</a>
+                <a href="../index.html">Hub</a>
+            </nav>
+        </header>
+        <div class="main">
+            <canvas id="canvas"></canvas>
+            <div class="sidebar">
+                <div class="wavelength-display">
+                    <div style="font-size: 0.9em; color: rgba(255,255,255,0.7);">WAVELENGTH</div>
+                    <div class="wavelength-value" id="wavelength">550</div>
+                    <div style="font-size: 0.9em; color: rgba(255,255,255,0.7);">nanometers</div>
+                </div>
+                <div class="color-info" id="colorInfo">
+                    <h3 id="colorName">Green</h3>
+                    <p id="colorDesc">Peak sensitivity of human eye. Most visible color in daylight.</p>
+                </div>
+                <div class="legend">
+                    <h3 style="margin-bottom: 15px;">Visible Spectrum</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(148, 0, 211);"></div>
+                        <div>380-450nm Violet</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(0, 0, 255);"></div>
+                        <div>450-495nm Blue</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(0, 255, 0);"></div>
+                        <div>495-570nm Green</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(255, 255, 0);"></div>
+                        <div>570-590nm Yellow</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(255, 127, 0);"></div>
+                        <div>590-620nm Orange</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgb(255, 0, 0);"></div>
+                        <div>620-750nm Red</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        console.log('Spectrum Explorer initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+
+        function resize() {
+            width = canvas.width = canvas.offsetWidth;
+            height = canvas.height = canvas.offsetHeight;
+            draw();
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        const spectrumData = [
+            { range: [380, 450], color: [148, 0, 211], name: 'Violet', desc: 'Highest energy visible light. Can see fluorescence.' },
+            { range: [450, 475], color: [75, 0, 130], name: 'Indigo', desc: 'Deep blue-purple. Rare in nature.' },
+            { range: [475, 495], color: [0, 0, 255], name: 'Blue', desc: 'Sky color. Short wavelength, scatters easily.' },
+            { range: [495, 520], color: [0, 255, 255], name: 'Cyan', desc: 'Blue-green. Complements red light.' },
+            { range: [520, 570], color: [0, 255, 0], name: 'Green', desc: 'Peak sensitivity of human eye. Most visible color in daylight.' },
+            { range: [570, 590], color: [255, 255, 0], name: 'Yellow', desc: 'Warm bright color. High visibility.' },
+            { range: [590, 620], color: [255, 127, 0], name: 'Orange', desc: 'Sunset color. Longer wavelength.' },
+            { range: [620, 750], color: [255, 0, 0], name: 'Red', desc: 'Lowest energy visible light. Penetrates far.' }
+        ];
+
+        function wavelengthToRGB(wavelength) {
+            for (const spec of spectrumData) {
+                if (wavelength >= spec.range[0] && wavelength < spec.range[1]) {
+                    return spec.color;
+                }
+            }
+            return [255, 0, 0];
+        }
+
+        function getColorInfo(wavelength) {
+            for (const spec of spectrumData) {
+                if (wavelength >= spec.range[0] && wavelength < spec.range[1]) {
+                    return spec;
+                }
+            }
+            return spectrumData[spectrumData.length - 1];
+        }
+
+        let currentWavelength = 550;
+
+        function draw() {
+            ctx.fillStyle = '#0a0a14';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw spectrum gradient
+            const barHeight = 100;
+            const barY = (height - barHeight) / 2;
+
+            for (let x = 0; x < width; x++) {
+                const wavelength = 380 + (370 * x / width);
+                const rgb = wavelengthToRGB(wavelength);
+                ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                ctx.fillRect(x, barY, 1, barHeight);
+            }
+
+            // Add glow effect
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = 'rgba(255,255,255,0.5)';
+            for (let x = 0; x < width; x++) {
+                const wavelength = 380 + (370 * x / width);
+                const rgb = wavelengthToRGB(wavelength);
+                ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.3)`;
+                ctx.fillRect(x, barY - 20, 1, barHeight + 40);
+            }
+            ctx.shadowBlur = 0;
+
+            // Draw wavelength marker
+            const markerX = ((currentWavelength - 380) / 370) * width;
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(markerX, barY - 40);
+            ctx.lineTo(markerX, barY + barHeight + 40);
+            ctx.stroke();
+
+            // Draw circle at marker
+            const rgb = wavelengthToRGB(currentWavelength);
+            ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+            ctx.beginPath();
+            ctx.arc(markerX, height / 2, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw wavelength labels
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = '12px -apple-system';
+            ctx.textAlign = 'center';
+
+            for (let wl = 400; wl <= 700; wl += 50) {
+                const x = ((wl - 380) / 370) * width;
+                ctx.fillText(wl + 'nm', x, barY - 50);
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            currentWavelength = Math.max(380, Math.min(750, 380 + (370 * x / width)));
+
+            document.getElementById('wavelength').textContent = Math.round(currentWavelength);
+
+            const info = getColorInfo(currentWavelength);
+            document.getElementById('colorName').textContent = info.name;
+            document.getElementById('colorDesc').textContent = info.desc;
+
+            draw();
+        });
+
+        canvas.addEventListener('click', (e) => {
+            console.log(`Selected wavelength: ${Math.round(currentWavelength)}nm (${getColorInfo(currentWavelength).name})`);
+        });
+
+        draw();
+    </script>
+</body>
+</html>

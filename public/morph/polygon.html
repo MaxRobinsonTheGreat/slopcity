@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a0f2e 0%, #2e1a3a 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8892b0;
+            margin-bottom: 8px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            width: calc(50% - 4px);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .nav {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .nav a {
+            background: rgba(20, 25, 40, 0.9);
+            color: #f093fb;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(240, 147, 251, 0.2);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .nav a:hover {
+            background: rgba(240, 147, 251, 0.1);
+            border-color: rgba(240, 147, 251, 0.5);
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #8892b0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info .highlight {
+            color: #f093fb;
+            font-weight: 600;
+        }
+
+        .vertex-count {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            font-weight: 800;
+            color: rgba(240, 147, 251, 0.1);
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="vertex-count" id="vertexCount">0</div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Actions</label>
+            <button onclick="clearCanvas()">Clear All</button>
+            <button onclick="closePolygon()">Close Shape</button>
+            <button onclick="undoVertex()">Undo Point</button>
+            <button onclick="fillToggle()">Toggle Fill</button>
+        </div>
+
+        <div class="control-group">
+            <label>Quick Shapes</label>
+            <button onclick="makeRegularPolygon(3)">Triangle</button>
+            <button onclick="makeRegularPolygon(4)">Square</button>
+            <button onclick="makeRegularPolygon(5)">Pentagon</button>
+            <button onclick="makeRegularPolygon(6)">Hexagon</button>
+            <button onclick="makeRegularPolygon(8)">Octagon</button>
+            <button onclick="makeRegularPolygon(12)">12-gon</button>
+        </div>
+    </div>
+
+    <div class="info">
+        <span class="highlight">Click</span> to place vertices<br>
+        Build custom polygons freehand<br>
+        Close shape to complete
+    </div>
+
+    <div class="nav">
+        <a href="index.html">Morph Studio</a>
+        <a href="curves.html">Curve Editor</a>
+        <a href="tessellation.html">Tessellation</a>
+        <a href="../index.html">Hub</a>
+    </div>
+
+    <script>
+        console.log('%c POLYGON BUILDER ', 'background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff; font-weight: bold; font-size: 16px; padding: 8px;');
+        console.log('Click to create custom polygons');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        let vertices = [];
+        let isClosed = false;
+        let showFill = true;
+        let hoverVertex = -1;
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawPolygon() {
+            ctx.fillStyle = 'rgba(26, 15, 46, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            if (vertices.length === 0) return;
+
+            // Draw polygon
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+
+            for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+
+            if (isClosed) {
+                ctx.closePath();
+
+                if (showFill) {
+                    ctx.fillStyle = 'rgba(240, 147, 251, 0.15)';
+                    ctx.fill();
+                }
+            }
+
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#f093fb';
+            ctx.strokeStyle = '#f093fb';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw vertices
+            vertices.forEach((v, i) => {
+                ctx.beginPath();
+                ctx.arc(v.x, v.y, i === hoverVertex ? 8 : 5, 0, Math.PI * 2);
+
+                if (i === 0) {
+                    ctx.fillStyle = '#00ff88';
+                } else if (i === hoverVertex) {
+                    ctx.fillStyle = '#ffff00';
+                } else {
+                    ctx.fillStyle = '#f093fb';
+                }
+
+                ctx.fill();
+
+                // Draw vertex number
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px monospace';
+                ctx.fillText(i, v.x + 10, v.y - 10);
+            });
+
+            // Update vertex count display
+            document.getElementById('vertexCount').textContent = vertices.length;
+        }
+
+        function animate() {
+            drawPolygon();
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (isClosed) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Check if clicking near first vertex to close
+            if (vertices.length >= 3) {
+                const dx = x - vertices[0].x;
+                const dy = y - vertices[0].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 20) {
+                    closePolygon();
+                    console.log('Polygon closed with', vertices.length, 'vertices');
+                    return;
+                }
+            }
+
+            vertices.push({ x, y });
+            console.log('Vertex', vertices.length, 'placed at', Math.round(x), Math.round(y));
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            hoverVertex = -1;
+
+            for (let i = 0; i < vertices.length; i++) {
+                const dx = mx - vertices[i].x;
+                const dy = my - vertices[i].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 15) {
+                    hoverVertex = i;
+                    break;
+                }
+            }
+        });
+
+        function clearCanvas() {
+            vertices = [];
+            isClosed = false;
+            ctx.fillStyle = 'rgba(26, 15, 46, 1)';
+            ctx.fillRect(0, 0, width, height);
+            console.log('Canvas cleared');
+        }
+
+        function closePolygon() {
+            if (vertices.length >= 3) {
+                isClosed = true;
+                console.log('Polygon closed');
+            }
+        }
+
+        function undoVertex() {
+            if (vertices.length > 0 && !isClosed) {
+                vertices.pop();
+                console.log('Vertex removed, count:', vertices.length);
+            }
+        }
+
+        function fillToggle() {
+            showFill = !showFill;
+            console.log('Fill:', showFill);
+        }
+
+        function makeRegularPolygon(sides) {
+            clearCanvas();
+            const cx = width / 2;
+            const cy = height / 2;
+            const radius = Math.min(width, height) * 0.3;
+
+            vertices = [];
+            for (let i = 0; i < sides; i++) {
+                const angle = (i / sides) * Math.PI * 2 - Math.PI / 2;
+                vertices.push({
+                    x: cx + Math.cos(angle) * radius,
+                    y: cy + Math.sin(angle) * radius
+                });
+            }
+
+            isClosed = true;
+            console.log(`Created regular ${sides}-gon`);
+        }
+
+        animate();
+        console.log('Ready to build polygons');
+    </script>
+</body>
+</html>

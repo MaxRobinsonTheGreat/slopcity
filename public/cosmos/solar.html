@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Explorer - COSMOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        #canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #4FC3F7;
+        }
+        .planet-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .planet-data {
+            font-size: 11px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .nav-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        }
+        .nav-btn:hover {
+            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+        }
+        #speed {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="info">
+        <h1>SOLAR SYSTEM</h1>
+        <div class="planet-name" id="planetName">Sun</div>
+        <div class="planet-data" id="planetData">
+            Our star, the center of the solar system.<br>
+            Mass: 1.989 × 10³⁰ kg<br>
+            Radius: 696,340 km<br>
+            Temperature: 5,778 K
+        </div>
+    </div>
+
+    <div id="speed">
+        Speed: <span id="speedVal">1.0</span>x
+    </div>
+
+    <div id="controls">
+        <button onclick="changeSpeed(-0.5)">⏪ Slower</button>
+        <button onclick="togglePause()">⏸ Pause</button>
+        <button onclick="changeSpeed(0.5)">⏩ Faster</button>
+        <button class="nav-btn" onclick="location.href='index.html'">Gravity Lab</button>
+        <button class="nav-btn" onclick="location.href='galaxy.html'">Galaxy</button>
+    </div>
+
+    <script>
+        console.log('☉ Solar System Explorer initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const planets = [
+            {
+                name: 'Sun',
+                color: '#FDB813',
+                radius: 30,
+                orbit: 0,
+                speed: 0,
+                angle: 0,
+                data: 'Our star, the center of the solar system.<br>Mass: 1.989 × 10³⁰ kg<br>Radius: 696,340 km<br>Temperature: 5,778 K'
+            },
+            {
+                name: 'Mercury',
+                color: '#8C7853',
+                radius: 4,
+                orbit: 80,
+                speed: 0.04,
+                angle: 0,
+                data: 'Closest planet to the Sun.<br>Mass: 3.285 × 10²³ kg<br>Radius: 2,439 km<br>Orbital period: 88 days'
+            },
+            {
+                name: 'Venus',
+                color: '#FFC649',
+                radius: 9,
+                orbit: 120,
+                speed: 0.03,
+                angle: Math.PI / 4,
+                data: 'Hottest planet in our system.<br>Mass: 4.867 × 10²⁴ kg<br>Radius: 6,051 km<br>Orbital period: 225 days'
+            },
+            {
+                name: 'Earth',
+                color: '#4A90E2',
+                radius: 10,
+                orbit: 160,
+                speed: 0.02,
+                angle: Math.PI / 2,
+                data: 'Our home planet.<br>Mass: 5.972 × 10²⁴ kg<br>Radius: 6,371 km<br>Orbital period: 365 days'
+            },
+            {
+                name: 'Mars',
+                color: '#E27B58',
+                radius: 6,
+                orbit: 200,
+                speed: 0.018,
+                angle: Math.PI,
+                data: 'The Red Planet.<br>Mass: 6.39 × 10²³ kg<br>Radius: 3,389 km<br>Orbital period: 687 days'
+            },
+            {
+                name: 'Jupiter',
+                color: '#C88B3A',
+                radius: 22,
+                orbit: 280,
+                speed: 0.008,
+                angle: Math.PI * 1.5,
+                data: 'Largest planet in our system.<br>Mass: 1.898 × 10²⁷ kg<br>Radius: 69,911 km<br>Orbital period: 12 years'
+            },
+            {
+                name: 'Saturn',
+                color: '#FAD5A5',
+                radius: 18,
+                orbit: 350,
+                speed: 0.006,
+                angle: Math.PI / 6,
+                data: 'Famous for its rings.<br>Mass: 5.683 × 10²⁶ kg<br>Radius: 58,232 km<br>Orbital period: 29 years'
+            },
+            {
+                name: 'Uranus',
+                color: '#4FD0E7',
+                radius: 12,
+                orbit: 410,
+                speed: 0.004,
+                angle: Math.PI * 1.2,
+                data: 'Ice giant tilted on its side.<br>Mass: 8.681 × 10²⁵ kg<br>Radius: 25,362 km<br>Orbital period: 84 years'
+            },
+            {
+                name: 'Neptune',
+                color: '#4166F5',
+                radius: 12,
+                orbit: 460,
+                speed: 0.003,
+                angle: Math.PI * 0.7,
+                data: 'Farthest planet from Sun.<br>Mass: 1.024 × 10²⁶ kg<br>Radius: 24,622 km<br>Orbital period: 165 years'
+            }
+        ];
+
+        let timeSpeed = 1.0;
+        let paused = false;
+        let hoveredPlanet = null;
+
+        function changeSpeed(delta) {
+            timeSpeed = Math.max(0.1, Math.min(timeSpeed + delta, 5.0));
+            document.getElementById('speedVal').textContent = timeSpeed.toFixed(1);
+        }
+
+        function togglePause() {
+            paused = !paused;
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            hoveredPlanet = null;
+
+            for (let planet of planets) {
+                const x = centerX + Math.cos(planet.angle) * planet.orbit;
+                const y = centerY + Math.sin(planet.angle) * planet.orbit;
+                const dist = Math.sqrt((mouseX - x) ** 2 + (mouseY - y) ** 2);
+
+                if (dist < planet.radius + 10) {
+                    hoveredPlanet = planet;
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('click', () => {
+            if (hoveredPlanet) {
+                document.getElementById('planetName').textContent = hoveredPlanet.name;
+                document.getElementById('planetData').innerHTML = hoveredPlanet.data;
+            }
+        });
+
+        function drawStars() {
+            for (let i = 0; i < 400; i++) {
+                const x = (i * 137.508) % width;
+                const y = (i * 197.234) % height;
+                const size = (i % 3 === 0) ? 2 : 1;
+                const twinkle = Math.sin(Date.now() * 0.001 + i) * 0.2 + 0.8;
+                ctx.fillStyle = `rgba(255, 255, 255, ${(0.2 + (i % 5) * 0.1) * twinkle})`;
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            drawStars();
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Update angles
+            if (!paused) {
+                planets.forEach(planet => {
+                    planet.angle += planet.speed * timeSpeed * 0.01;
+                });
+            }
+
+            // Draw orbits
+            ctx.strokeStyle = 'rgba(100, 150, 255, 0.2)';
+            ctx.lineWidth = 1;
+            planets.forEach(planet => {
+                if (planet.orbit > 0) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, planet.orbit, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw planets
+            planets.forEach(planet => {
+                const x = centerX + Math.cos(planet.angle) * planet.orbit;
+                const y = centerY + Math.sin(planet.angle) * planet.orbit;
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, planet.radius * 2.5);
+                gradient.addColorStop(0, planet.color);
+                gradient.addColorStop(0.5, planet.color + '40');
+                gradient.addColorStop(1, 'transparent');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, planet.radius * 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Planet body
+                const bodyGradient = ctx.createRadialGradient(
+                    x - planet.radius * 0.3,
+                    y - planet.radius * 0.3,
+                    0,
+                    x, y, planet.radius
+                );
+                bodyGradient.addColorStop(0, '#ffffff');
+                bodyGradient.addColorStop(0.3, planet.color);
+                bodyGradient.addColorStop(1, planet.color + 'DD');
+
+                ctx.fillStyle = bodyGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, planet.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight if hovered
+                if (hoveredPlanet === planet) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, planet.radius + 5, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Label
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px Courier New';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(planet.name, x, y - planet.radius - 10);
+                }
+
+                // Saturn's rings
+                if (planet.name === 'Saturn') {
+                    ctx.strokeStyle = planet.color + '80';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, planet.radius * 1.8, planet.radius * 0.5, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        animate();
+        console.log('🪐 Rendering solar system');
+    </script>
+</body>
+</html>

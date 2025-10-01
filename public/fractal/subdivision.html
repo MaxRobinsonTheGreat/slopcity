@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursive Subdivisions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            z-index: 10;
+            max-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #0f0;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        select, button {
+            width: 100%;
+            padding: 8px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #0a0;
+        }
+        #nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+        }
+        #nav a {
+            display: block;
+            color: #0f0;
+            text-decoration: none;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        #nav a:hover {
+            background: #0f0;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+
+        <div id="controls">
+            <h3 style="margin-bottom: 15px; text-align: center;">SUBDIVISIONS</h3>
+
+            <div class="control-group">
+                <label>Pattern Type</label>
+                <select id="pattern">
+                    <option value="sierpinski">Sierpinski Triangle</option>
+                    <option value="sierpinskiCarpet">Sierpinski Carpet</option>
+                    <option value="kochSnowflake">Koch Snowflake</option>
+                    <option value="dragon">Dragon Curve</option>
+                    <option value="hilbert">Hilbert Curve</option>
+                    <option value="gosper">Gosper Curve</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Depth <span class="value-display" id="depthValue">5</span></label>
+                <input type="range" id="depth" min="1" max="8" value="5" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>Line Width <span class="value-display" id="widthValue">2</span></label>
+                <input type="range" id="lineWidth" min="0.5" max="5" value="2" step="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>Color Mode</label>
+                <select id="colorMode">
+                    <option value="depth">Depth</option>
+                    <option value="rainbow">Rainbow</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="neon">Neon</option>
+                    <option value="monochrome">Monochrome</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button id="animateBtn">Animate Build</button>
+            </div>
+
+            <div class="control-group">
+                <button id="randomBtn">Random Pattern</button>
+            </div>
+        </div>
+
+        <div id="nav">
+            <a href="index.html">Fractal Explorer</a>
+            <a href="tree.html">Recursive Trees</a>
+            <a href="spiral.html">Spiral Patterns</a>
+            <a href="../index.html">Main Hub</a>
+        </div>
+    </div>
+
+    <script>
+        console.log('📐 RECURSIVE SUBDIVISION GENERATOR INITIALIZING...');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const dpr = window.devicePixelRatio || 1;
+        let width, height;
+
+        let params = {
+            pattern: 'sierpinski',
+            depth: 5,
+            lineWidth: 2,
+            colorMode: 'depth'
+        };
+
+        let animating = false;
+        let animationDepth = 0;
+        let animationFrame = null;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+        }
+
+        function getColor(depth, maxDepth, mode, segmentIndex = 0) {
+            const t = depth / maxDepth;
+
+            switch(mode) {
+                case 'depth':
+                    return `hsl(${120 + t * 180}, 70%, 50%)`;
+
+                case 'rainbow':
+                    return `hsl(${(segmentIndex * 137.5) % 360}, 80%, 50%)`;
+
+                case 'gradient':
+                    return `hsl(${180 - t * 180}, 80%, ${30 + t * 40}%)`;
+
+                case 'neon':
+                    return `hsl(${t * 360}, 100%, 50%)`;
+
+                case 'monochrome':
+                    const v = Math.floor((1 - t) * 200 + 55);
+                    return `rgb(${v}, ${v}, ${v})`;
+
+                default:
+                    return '#0f0';
+            }
+        }
+
+        function drawLine(x1, y1, x2, y2, depth, maxDepth, segmentIndex) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = getColor(depth, maxDepth, params.colorMode, segmentIndex);
+            ctx.lineWidth = params.lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+
+        function drawSierpinskiTriangle(x1, y1, x2, y2, x3, y3, depth, maxDepth, segIdx) {
+            if (depth === 0 || (animating && depth > animationDepth)) {
+                return;
+            }
+
+            drawLine(x1, y1, x2, y2, depth, maxDepth, segIdx);
+            drawLine(x2, y2, x3, y3, depth, maxDepth, segIdx + 1);
+            drawLine(x3, y3, x1, y1, depth, maxDepth, segIdx + 2);
+
+            const mx1 = (x1 + x2) / 2;
+            const my1 = (y1 + y2) / 2;
+            const mx2 = (x2 + x3) / 2;
+            const my2 = (y2 + y3) / 2;
+            const mx3 = (x3 + x1) / 2;
+            const my3 = (y3 + y1) / 2;
+
+            drawSierpinskiTriangle(x1, y1, mx1, my1, mx3, my3, depth - 1, maxDepth, segIdx * 3);
+            drawSierpinskiTriangle(mx1, my1, x2, y2, mx2, my2, depth - 1, maxDepth, segIdx * 3 + 1);
+            drawSierpinskiTriangle(mx3, my3, mx2, my2, x3, y3, depth - 1, maxDepth, segIdx * 3 + 2);
+        }
+
+        function drawSierpinskiCarpet(x, y, size, depth, maxDepth, segIdx) {
+            if (depth === 0 || size < 1 || (animating && depth > animationDepth)) {
+                return;
+            }
+
+            ctx.fillStyle = getColor(depth, maxDepth, params.colorMode, segIdx);
+            const third = size / 3;
+            ctx.fillRect(x + third, y + third, third, third);
+
+            const newDepth = depth - 1;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (i !== 1 || j !== 1) {
+                        drawSierpinskiCarpet(x + i * third, y + j * third, third, newDepth, maxDepth, segIdx * 8 + i * 3 + j);
+                    }
+                }
+            }
+        }
+
+        function drawKochSegment(x1, y1, x2, y2, depth, maxDepth, segIdx) {
+            if (depth === 0 || (animating && depth > animationDepth)) {
+                drawLine(x1, y1, x2, y2, depth, maxDepth, segIdx);
+                return;
+            }
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+
+            const x3 = x1 + dx / 3;
+            const y3 = y1 + dy / 3;
+
+            const x5 = x1 + 2 * dx / 3;
+            const y5 = y1 + 2 * dy / 3;
+
+            const angle = Math.atan2(dy, dx);
+            const len = Math.sqrt(dx * dx + dy * dy) / 3;
+            const x4 = x3 + len * Math.cos(angle - Math.PI / 3);
+            const y4 = y3 + len * Math.sin(angle - Math.PI / 3);
+
+            drawKochSegment(x1, y1, x3, y3, depth - 1, maxDepth, segIdx * 4);
+            drawKochSegment(x3, y3, x4, y4, depth - 1, maxDepth, segIdx * 4 + 1);
+            drawKochSegment(x4, y4, x5, y5, depth - 1, maxDepth, segIdx * 4 + 2);
+            drawKochSegment(x5, y5, x2, y2, depth - 1, maxDepth, segIdx * 4 + 3);
+        }
+
+        function drawKochSnowflake(cx, cy, size, depth, maxDepth) {
+            const h = size * Math.sqrt(3) / 2;
+            const x1 = cx - size / 2;
+            const y1 = cy + h / 3;
+            const x2 = cx + size / 2;
+            const y2 = cy + h / 3;
+            const x3 = cx;
+            const y3 = cy - 2 * h / 3;
+
+            drawKochSegment(x1, y1, x2, y2, depth, maxDepth, 0);
+            drawKochSegment(x2, y2, x3, y3, depth, maxDepth, 1);
+            drawKochSegment(x3, y3, x1, y1, depth, maxDepth, 2);
+        }
+
+        function drawDragonCurve(x1, y1, x2, y2, depth, maxDepth, sign, segIdx) {
+            if (depth === 0 || (animating && depth > animationDepth)) {
+                drawLine(x1, y1, x2, y2, depth, maxDepth, segIdx);
+                return;
+            }
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const xm = (x1 + x2) / 2 + sign * (dy / 2);
+            const ym = (y1 + y2) / 2 - sign * (dx / 2);
+
+            drawDragonCurve(x1, y1, xm, ym, depth - 1, maxDepth, 1, segIdx * 2);
+            drawDragonCurve(xm, ym, x2, y2, depth - 1, maxDepth, -1, segIdx * 2 + 1);
+        }
+
+        function drawHilbertCurve(x, y, size, depth, maxDepth, angle, segIdx) {
+            if (depth === 0 || (animating && depth > animationDepth)) {
+                return;
+            }
+
+            angle = (angle + 90) % 360;
+            drawHilbertCurve(x, y, size / 2, depth - 1, maxDepth, angle, segIdx * 4);
+
+            const rad1 = angle * Math.PI / 180;
+            const x1 = x + size / 2 * Math.cos(rad1);
+            const y1 = y + size / 2 * Math.sin(rad1);
+            if (depth <= params.depth) {
+                drawLine(x, y, x1, y1, depth, maxDepth, segIdx);
+            }
+
+            angle = (angle - 90) % 360;
+            drawHilbertCurve(x1, y1, size / 2, depth - 1, maxDepth, angle, segIdx * 4 + 1);
+
+            const rad2 = angle * Math.PI / 180;
+            const x2 = x1 + size / 2 * Math.cos(rad2);
+            const y2 = y1 + size / 2 * Math.sin(rad2);
+            if (depth <= params.depth) {
+                drawLine(x1, y1, x2, y2, depth, maxDepth, segIdx);
+            }
+
+            drawHilbertCurve(x2, y2, size / 2, depth - 1, maxDepth, angle, segIdx * 4 + 2);
+
+            const rad3 = angle * Math.PI / 180;
+            const x3 = x2 + size / 2 * Math.cos(rad3);
+            const y3 = y2 + size / 2 * Math.sin(rad3);
+            if (depth <= params.depth) {
+                drawLine(x2, y2, x3, y3, depth, maxDepth, segIdx);
+            }
+
+            angle = (angle - 90) % 360;
+            drawHilbertCurve(x3, y3, size / 2, depth - 1, maxDepth, angle, segIdx * 4 + 3);
+        }
+
+        function drawGosperCurve(x1, y1, x2, y2, depth, maxDepth, segIdx) {
+            if (depth === 0 || (animating && depth > animationDepth)) {
+                drawLine(x1, y1, x2, y2, depth, maxDepth, segIdx);
+                return;
+            }
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy) / Math.sqrt(7);
+            const angle = Math.atan2(dy, dx);
+
+            const points = [];
+            let x = x1, y = y1;
+            points.push({ x, y });
+
+            const angles = [0, 60, -60, -60, 0, 60, 0];
+            let currentAngle = angle;
+
+            for (let i = 0; i < 7; i++) {
+                currentAngle += angles[i] * Math.PI / 180;
+                x += len * Math.cos(currentAngle);
+                y += len * Math.sin(currentAngle);
+                points.push({ x, y });
+            }
+
+            for (let i = 0; i < points.length - 1; i++) {
+                drawGosperCurve(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, depth - 1, maxDepth, segIdx * 7 + i);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const size = Math.min(width, height) * 0.7;
+
+            const currentDepth = animating ? animationDepth : params.depth;
+
+            switch(params.pattern) {
+                case 'sierpinski':
+                    const h = size * Math.sqrt(3) / 2;
+                    drawSierpinskiTriangle(
+                        centerX - size / 2, centerY + h / 3,
+                        centerX + size / 2, centerY + h / 3,
+                        centerX, centerY - 2 * h / 3,
+                        currentDepth, params.depth, 0
+                    );
+                    break;
+
+                case 'sierpinskiCarpet':
+                    drawSierpinskiCarpet(centerX - size / 2, centerY - size / 2, size, currentDepth, params.depth, 0);
+                    break;
+
+                case 'kochSnowflake':
+                    drawKochSnowflake(centerX, centerY, size, currentDepth, params.depth);
+                    break;
+
+                case 'dragon':
+                    drawDragonCurve(
+                        centerX - size / 4, centerY,
+                        centerX + size / 4, centerY,
+                        currentDepth, params.depth, 1, 0
+                    );
+                    break;
+
+                case 'hilbert':
+                    drawHilbertCurve(centerX - size / 2, centerY - size / 2, size, currentDepth, params.depth, 0, 0);
+                    break;
+
+                case 'gosper':
+                    drawGosperCurve(
+                        centerX - size / 4, centerY,
+                        centerX + size / 4, centerY,
+                        currentDepth, params.depth, 0
+                    );
+                    break;
+            }
+
+            console.log(`Drew ${params.pattern} at depth ${currentDepth}`);
+        }
+
+        // Event handlers
+        document.getElementById('pattern').addEventListener('change', (e) => {
+            params.pattern = e.target.value;
+            draw();
+        });
+
+        document.getElementById('depth').addEventListener('input', (e) => {
+            params.depth = parseInt(e.target.value);
+            document.getElementById('depthValue').textContent = params.depth;
+            if (!animating) draw();
+        });
+
+        document.getElementById('lineWidth').addEventListener('input', (e) => {
+            params.lineWidth = parseFloat(e.target.value);
+            document.getElementById('widthValue').textContent = params.lineWidth;
+            if (!animating) draw();
+        });
+
+        document.getElementById('colorMode').addEventListener('change', (e) => {
+            params.colorMode = e.target.value;
+            draw();
+        });
+
+        document.getElementById('animateBtn').addEventListener('click', () => {
+            animating = !animating;
+            if (animating) {
+                document.getElementById('animateBtn').textContent = 'Stop Animation';
+                animationDepth = 0;
+                animate();
+            } else {
+                document.getElementById('animateBtn').textContent = 'Animate Build';
+                cancelAnimationFrame(animationFrame);
+                draw();
+            }
+        });
+
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            const patterns = ['sierpinski', 'sierpinskiCarpet', 'kochSnowflake', 'dragon', 'hilbert', 'gosper'];
+            params.pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            params.depth = Math.floor(Math.random() * 5) + 3;
+
+            document.getElementById('pattern').value = params.pattern;
+            document.getElementById('depth').value = params.depth;
+            document.getElementById('depthValue').textContent = params.depth;
+
+            if (!animating) draw();
+        });
+
+        function animate() {
+            if (!animating) return;
+
+            animationDepth += 0.05;
+            if (animationDepth >= params.depth) {
+                animationDepth = 0;
+            }
+
+            draw();
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            draw();
+        });
+
+        // Initialize
+        resizeCanvas();
+        draw();
+
+        console.log('📐 Recursive Subdivision Generator ready!');
+    </script>
+</body>
+</html>

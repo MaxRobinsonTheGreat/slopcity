@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solver Race - Maze</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5)); }
+            50% { filter: drop-shadow(0 0 30px rgba(118, 75, 162, 0.8)); }
+        }
+
+        .nav {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .nav a {
+            padding: 10px 20px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            color: #fff;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .nav a:hover {
+            background: rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .race-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .maze-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .maze-section.winner {
+            border-color: #10b981;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .maze-section h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            border: 2px solid rgba(102, 126, 234, 0.5);
+            border-radius: 8px;
+            background: #000;
+            max-width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            text-align: center;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #a0aec0;
+            text-transform: uppercase;
+        }
+
+        .leaderboard {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            margin-top: 30px;
+        }
+
+        .leaderboard h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateX(5px);
+        }
+
+        .leaderboard-item.first {
+            border-left-color: #fbbf24;
+        }
+
+        .leaderboard-item.second {
+            border-left-color: #94a3b8;
+        }
+
+        .leaderboard-item.third {
+            border-left-color: #cd7f32;
+        }
+
+        @media (max-width: 968px) {
+            .race-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PATHFINDING RACE</h1>
+            <div class="nav">
+                <a href="index.html">Main</a>
+                <a href="algorithms.html">Algorithm Showcase</a>
+                <a href="race.html">Solver Race</a>
+                <a href="3d.html">3D Maze</a>
+                <a href="../index.html">Hub</a>
+            </div>
+        </header>
+
+        <div class="controls" style="justify-content: center; margin-bottom: 30px;">
+            <button id="raceBtn">START RACE</button>
+            <button id="newMazeBtn">New Maze</button>
+        </div>
+
+        <div class="race-container">
+            <div class="maze-section" id="section1">
+                <h2>A* Algorithm</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="canvas1" width="500" height="500"></canvas>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <span class="stat-value" id="explored1">0</span>
+                        <span class="stat-label">Explored</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="time1">0ms</span>
+                        <span class="stat-label">Time</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="path1">0</span>
+                        <span class="stat-label">Path</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="maze-section" id="section2">
+                <h2>Dijkstra Algorithm</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="canvas2" width="500" height="500"></canvas>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <span class="stat-value" id="explored2">0</span>
+                        <span class="stat-label">Explored</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="time2">0ms</span>
+                        <span class="stat-label">Time</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="path2">0</span>
+                        <span class="stat-label">Path</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leaderboard">
+            <h2>RACE RESULTS</h2>
+            <div id="leaderboardContent">
+                <p style="text-align: center; color: #a0aec0;">Run a race to see results</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas1 = document.getElementById('canvas1');
+        const canvas2 = document.getElementById('canvas2');
+        const ctx1 = canvas1.getContext('2d');
+        const ctx2 = canvas2.getContext('2d');
+
+        const size = 30;
+        const cellSize = 16;
+        let maze1 = null;
+        let maze2 = null;
+        let raceHistory = [];
+
+        class Cell {
+            constructor(row, col) {
+                this.row = row;
+                this.col = col;
+                this.walls = { top: true, right: true, bottom: true, left: true };
+                this.visited = false;
+                this.explored = false;
+                this.inPath = false;
+                this.distance = Infinity;
+                this.heuristic = 0;
+            }
+
+            clone() {
+                const cell = new Cell(this.row, this.col);
+                cell.walls = { ...this.walls };
+                return cell;
+            }
+        }
+
+        function initMaze() {
+            const maze = [];
+            for (let r = 0; r < size; r++) {
+                maze[r] = [];
+                for (let c = 0; c < size; c++) {
+                    maze[r][c] = new Cell(r, c);
+                }
+            }
+            return maze;
+        }
+
+        function generateMaze(maze) {
+            const stack = [];
+            let current = maze[0][0];
+            current.visited = true;
+
+            while (true) {
+                const neighbors = getNeighbors(maze, current, true);
+
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    stack.push(current);
+                    removeWall(current, next);
+                    current = next;
+                    current.visited = true;
+                } else if (stack.length > 0) {
+                    current = stack.pop();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        function cloneMaze(maze) {
+            const newMaze = [];
+            for (let r = 0; r < size; r++) {
+                newMaze[r] = [];
+                for (let c = 0; c < size; c++) {
+                    newMaze[r][c] = maze[r][c].clone();
+                }
+            }
+            return newMaze;
+        }
+
+        function getNeighbors(maze, cell, unvisitedOnly = false) {
+            const neighbors = [];
+            const { row, col } = cell;
+
+            if (row > 0) neighbors.push(maze[row - 1][col]);
+            if (col < size - 1) neighbors.push(maze[row][col + 1]);
+            if (row < size - 1) neighbors.push(maze[row + 1][col]);
+            if (col > 0) neighbors.push(maze[row][col - 1]);
+
+            return unvisitedOnly ? neighbors.filter(n => !n.visited) : neighbors;
+        }
+
+        function removeWall(current, next) {
+            const dx = current.col - next.col;
+            const dy = current.row - next.row;
+
+            if (dx === 1) {
+                current.walls.left = false;
+                next.walls.right = false;
+            } else if (dx === -1) {
+                current.walls.right = false;
+                next.walls.left = false;
+            }
+
+            if (dy === 1) {
+                current.walls.top = false;
+                next.walls.bottom = false;
+            } else if (dy === -1) {
+                current.walls.bottom = false;
+                next.walls.top = false;
+            }
+        }
+
+        function drawMaze(ctx, maze) {
+            ctx.clearRect(0, 0, canvas1.width, canvas1.height);
+
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const cell = maze[r][c];
+                    const x = c * cellSize;
+                    const y = r * cellSize;
+
+                    if (r === 0 && c === 0) {
+                        ctx.fillStyle = '#10b981';
+                    } else if (r === size - 1 && c === size - 1) {
+                        ctx.fillStyle = '#ef4444';
+                    } else if (cell.inPath) {
+                        ctx.fillStyle = '#22c55e';
+                    } else if (cell.explored) {
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                    } else {
+                        ctx.fillStyle = '#000';
+                    }
+                    ctx.fillRect(x, y, cellSize, cellSize);
+
+                    ctx.strokeStyle = '#667eea';
+                    ctx.lineWidth = 2;
+                    ctx.shadowBlur = 3;
+                    ctx.shadowColor = '#667eea';
+                    ctx.beginPath();
+                    if (cell.walls.top) {
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + cellSize, y);
+                    }
+                    if (cell.walls.right) {
+                        ctx.moveTo(x + cellSize, y);
+                        ctx.lineTo(x + cellSize, y + cellSize);
+                    }
+                    if (cell.walls.bottom) {
+                        ctx.moveTo(x + cellSize, y + cellSize);
+                        ctx.lineTo(x, y + cellSize);
+                    }
+                    if (cell.walls.left) {
+                        ctx.moveTo(x, y + cellSize);
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        function canMove(from, to) {
+            const dx = from.col - to.col;
+            const dy = from.row - to.row;
+            if (dx === 1) return !from.walls.left;
+            if (dx === -1) return !from.walls.right;
+            if (dy === 1) return !from.walls.top;
+            if (dy === -1) return !from.walls.bottom;
+            return false;
+        }
+
+        async function solveAStar(maze, ctx, statsPrefix) {
+            const start = maze[0][0];
+            const end = maze[size - 1][size - 1];
+            const openSet = [start];
+            const cameFrom = new Map();
+            start.distance = 0;
+            start.heuristic = Math.abs(size - 1) + Math.abs(size - 1);
+            let explored = 0;
+
+            function getScore(cell) {
+                return cell.distance + cell.heuristic;
+            }
+
+            while (openSet.length > 0) {
+                openSet.sort((a, b) => getScore(a) - getScore(b));
+                const current = openSet.shift();
+
+                if (current === end) {
+                    const path = [];
+                    let node = end;
+                    while (node) {
+                        path.unshift(node);
+                        node = cameFrom.get(node);
+                    }
+                    path.forEach(cell => cell.inPath = true);
+                    drawMaze(ctx, maze);
+                    return { explored, pathLength: path.length };
+                }
+
+                current.explored = true;
+                explored++;
+                document.getElementById(`explored${statsPrefix}`).textContent = explored;
+
+                if (explored % 10 === 0) {
+                    drawMaze(ctx, maze);
+                    await new Promise(resolve => setTimeout(resolve, 1));
+                }
+
+                const neighbors = getNeighbors(maze, current, false);
+                for (const neighbor of neighbors) {
+                    if (!canMove(current, neighbor)) continue;
+
+                    const tentativeDistance = current.distance + 1;
+
+                    if (tentativeDistance < neighbor.distance) {
+                        cameFrom.set(neighbor, current);
+                        neighbor.distance = tentativeDistance;
+                        neighbor.heuristic = Math.abs(neighbor.row - end.row) + Math.abs(neighbor.col - end.col);
+
+                        if (!openSet.includes(neighbor)) {
+                            openSet.push(neighbor);
+                        }
+                    }
+                }
+            }
+
+            return { explored, pathLength: 0 };
+        }
+
+        async function solveDijkstra(maze, ctx, statsPrefix) {
+            const start = maze[0][0];
+            const end = maze[size - 1][size - 1];
+            const unvisited = [];
+            const cameFrom = new Map();
+
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    unvisited.push(maze[r][c]);
+                }
+            }
+
+            start.distance = 0;
+            let explored = 0;
+
+            while (unvisited.length > 0) {
+                unvisited.sort((a, b) => a.distance - b.distance);
+                const current = unvisited.shift();
+
+                if (current.distance === Infinity) break;
+                if (current === end) {
+                    const path = [];
+                    let node = end;
+                    while (node) {
+                        path.unshift(node);
+                        node = cameFrom.get(node);
+                    }
+                    path.forEach(cell => cell.inPath = true);
+                    drawMaze(ctx, maze);
+                    return { explored, pathLength: path.length };
+                }
+
+                current.explored = true;
+                explored++;
+                document.getElementById(`explored${statsPrefix}`).textContent = explored;
+
+                if (explored % 10 === 0) {
+                    drawMaze(ctx, maze);
+                    await new Promise(resolve => setTimeout(resolve, 1));
+                }
+
+                const neighbors = getNeighbors(maze, current, false);
+                for (const neighbor of neighbors) {
+                    if (!canMove(current, neighbor) || !unvisited.includes(neighbor)) continue;
+
+                    const alt = current.distance + 1;
+                    if (alt < neighbor.distance) {
+                        neighbor.distance = alt;
+                        cameFrom.set(neighbor, current);
+                    }
+                }
+            }
+
+            return { explored, pathLength: 0 };
+        }
+
+        async function startRace() {
+            document.getElementById('raceBtn').disabled = true;
+            document.getElementById('section1').classList.remove('winner');
+            document.getElementById('section2').classList.remove('winner');
+
+            // Reset stats
+            document.getElementById('explored1').textContent = '0';
+            document.getElementById('explored2').textContent = '0';
+            document.getElementById('path1').textContent = '0';
+            document.getElementById('path2').textContent = '0';
+            document.getElementById('time1').textContent = '0ms';
+            document.getElementById('time2').textContent = '0ms';
+
+            // Run both algorithms simultaneously
+            const start1 = performance.now();
+            const start2 = performance.now();
+
+            const [result1, result2] = await Promise.all([
+                solveAStar(maze1, ctx1, 1).then(result => {
+                    const time = Math.round(performance.now() - start1);
+                    document.getElementById('time1').textContent = time + 'ms';
+                    document.getElementById('path1').textContent = result.pathLength;
+                    return { ...result, time, algorithm: 'A*' };
+                }),
+                solveDijkstra(maze2, ctx2, 2).then(result => {
+                    const time = Math.round(performance.now() - start2);
+                    document.getElementById('time2').textContent = time + 'ms';
+                    document.getElementById('path2').textContent = result.pathLength;
+                    return { ...result, time, algorithm: 'Dijkstra' };
+                })
+            ]);
+
+            // Determine winner
+            if (result1.time < result2.time) {
+                document.getElementById('section1').classList.add('winner');
+                console.log('A* wins!');
+            } else {
+                document.getElementById('section2').classList.add('winner');
+                console.log('Dijkstra wins!');
+            }
+
+            // Update leaderboard
+            raceHistory.push({ astar: result1, dijkstra: result2 });
+            updateLeaderboard();
+
+            document.getElementById('raceBtn').disabled = false;
+        }
+
+        function updateLeaderboard() {
+            const content = document.getElementById('leaderboardContent');
+            content.innerHTML = '';
+
+            raceHistory.slice(-5).reverse().forEach((race, index) => {
+                const winner = race.astar.time < race.dijkstra.time ? 'A*' : 'Dijkstra';
+                const classes = ['first', 'second', 'third', '', ''];
+
+                const item = document.createElement('div');
+                item.className = `leaderboard-item ${classes[index]}`;
+                item.innerHTML = `
+                    <span><strong>Race ${raceHistory.length - index}</strong> - Winner: ${winner}</span>
+                    <span>A*: ${race.astar.time}ms | Dijkstra: ${race.dijkstra.time}ms</span>
+                `;
+                content.appendChild(item);
+            });
+        }
+
+        function createNewMaze() {
+            const masterMaze = initMaze();
+            generateMaze(masterMaze);
+
+            maze1 = cloneMaze(masterMaze);
+            maze2 = cloneMaze(masterMaze);
+
+            drawMaze(ctx1, maze1);
+            drawMaze(ctx2, maze2);
+
+            document.getElementById('explored1').textContent = '0';
+            document.getElementById('explored2').textContent = '0';
+            document.getElementById('path1').textContent = '0';
+            document.getElementById('path2').textContent = '0';
+            document.getElementById('time1').textContent = '0ms';
+            document.getElementById('time2').textContent = '0ms';
+            document.getElementById('section1').classList.remove('winner');
+            document.getElementById('section2').classList.remove('winner');
+
+            console.log('New maze generated for race');
+        }
+
+        document.getElementById('raceBtn').addEventListener('click', startRace);
+        document.getElementById('newMazeBtn').addEventListener('click', createNewMaze);
+
+        // Initialize
+        createNewMaze();
+        console.log('Race mode initialized');
+    </script>
+</body>
+</html>

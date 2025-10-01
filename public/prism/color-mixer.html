@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Mixer - PRISM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e1e2e, #2d1b3d);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(45deg, #fff, #ff6b9d, #c471ed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+        nav a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+        }
+        nav a:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .panel {
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .color-circle {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 20px auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        .color-circle:hover {
+            transform: scale(1.05);
+        }
+        .color-circle::after {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            background: inherit;
+            filter: blur(20px);
+            opacity: 0.5;
+            z-index: -1;
+        }
+        .result-display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .result-color {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .value-display {
+            float: right;
+            color: #fff;
+            font-weight: 600;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5em; }
+            .main { grid-template-columns: 1fr; gap: 15px; padding: 15px; }
+            .color-circle { width: 150px; height: 150px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Color Mixer</h1>
+            <nav>
+                <a href="index.html">Refraction</a>
+                <a href="spectrum.html">Spectrum</a>
+                <a href="lens.html">Lens</a>
+                <a href="../index.html">Hub</a>
+            </nav>
+        </header>
+        <div class="main">
+            <div class="panel">
+                <h2 style="text-align: center; margin-bottom: 20px;">Input Colors</h2>
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="additive">Additive (Light)</button>
+                    <button class="mode-btn" data-mode="subtractive">Subtractive (Paint)</button>
+                </div>
+                <div style="display: flex; justify-content: space-around;">
+                    <div class="color-circle" id="color1" style="background: rgb(255,0,0);"></div>
+                    <div class="color-circle" id="color2" style="background: rgb(0,255,0);"></div>
+                    <div class="color-circle" id="color3" style="background: rgb(0,0,255);"></div>
+                </div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Red <span class="value-display" id="r1Val">255</span></label>
+                        <input type="range" id="r1" min="0" max="255" value="255" style="background: linear-gradient(90deg, #000, #f00);">
+                    </div>
+                    <div class="control-group">
+                        <label>Green <span class="value-display" id="g1Val">0</span></label>
+                        <input type="range" id="g1" min="0" max="255" value="0" style="background: linear-gradient(90deg, #000, #0f0);">
+                    </div>
+                    <div class="control-group">
+                        <label>Blue <span class="value-display" id="b1Val">0</span></label>
+                        <input type="range" id="b1" min="0" max="255" value="0" style="background: linear-gradient(90deg, #000, #00f);">
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <h2 style="text-align: center; margin-bottom: 20px;">Mixed Result</h2>
+                <div class="result-display">
+                    <div class="result-color" id="result"></div>
+                </div>
+                <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px;">
+                    <div style="margin-bottom: 15px;">
+                        <strong>RGB:</strong> <span id="rgbDisplay">rgb(255, 255, 0)</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>HEX:</strong> <span id="hexDisplay">#FFFF00</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>Mode:</strong> <span id="modeDisplay">Additive (Light)</span>
+                    </div>
+                    <div style="font-size: 0.9em; color: rgba(255,255,255,0.7); line-height: 1.6; margin-top: 10px;">
+                        <span id="infoText">Additive color mixing combines light wavelengths. All colors together make white.</span>
+                    </div>
+                    <button onclick="setPreset('white')" style="width: 48%; padding: 10px; margin: 10px 1% 0 0; background: linear-gradient(135deg, #fff 0%, #ddd 100%); border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">White</button>
+                    <button onclick="setPreset('yellow')" style="width: 48%; padding: 10px; margin: 10px 0 0 1%; background: linear-gradient(135deg, #ffff00 0%, #ffd700 100%); border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Yellow</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        console.log('Color Mixer initialized');
+
+        let mode = 'additive';
+
+        const r1 = document.getElementById('r1');
+        const g1 = document.getElementById('g1');
+        const b1 = document.getElementById('b1');
+
+        const color1 = document.getElementById('color1');
+        const color2 = document.getElementById('color2');
+        const color3 = document.getElementById('color3');
+        const result = document.getElementById('result');
+
+        function updateColors() {
+            const red = parseInt(r1.value);
+            const green = parseInt(g1.value);
+            const blue = parseInt(b1.value);
+
+            document.getElementById('r1Val').textContent = red;
+            document.getElementById('g1Val').textContent = green;
+            document.getElementById('b1Val').textContent = blue;
+
+            color1.style.background = `rgb(${red}, 0, 0)`;
+            color2.style.background = `rgb(0, ${green}, 0)`;
+            color3.style.background = `rgb(0, 0, ${blue})`;
+
+            let finalR, finalG, finalB;
+
+            if (mode === 'additive') {
+                finalR = red;
+                finalG = green;
+                finalB = blue;
+            } else {
+                // Subtractive mixing (simplified CMY)
+                const cyan = 255 - red;
+                const magenta = 255 - green;
+                const yellow = 255 - blue;
+
+                finalR = Math.max(0, 255 - cyan);
+                finalG = Math.max(0, 255 - magenta);
+                finalB = Math.max(0, 255 - yellow);
+
+                // Darken for subtractive effect
+                const factor = 0.6;
+                finalR = Math.floor(finalR * factor);
+                finalG = Math.floor(finalG * factor);
+                finalB = Math.floor(finalB * factor);
+            }
+
+            const resultColor = `rgb(${finalR}, ${finalG}, ${finalB})`;
+            result.style.background = resultColor;
+
+            const hex = '#' + [finalR, finalG, finalB].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+            document.getElementById('rgbDisplay').textContent = resultColor;
+            document.getElementById('hexDisplay').textContent = hex;
+
+            console.log(`Color mixed: ${resultColor} (${mode} mode)`);
+        }
+
+        r1.addEventListener('input', updateColors);
+        g1.addEventListener('input', updateColors);
+        b1.addEventListener('input', updateColors);
+
+        // Mode switching
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                mode = btn.dataset.mode;
+
+                if (mode === 'additive') {
+                    document.getElementById('modeDisplay').textContent = 'Additive (Light)';
+                    document.getElementById('infoText').textContent = 'Additive color mixing combines light wavelengths. All colors together make white.';
+                } else {
+                    document.getElementById('modeDisplay').textContent = 'Subtractive (Paint)';
+                    document.getElementById('infoText').textContent = 'Subtractive mixing absorbs wavelengths like paint or ink. All colors together make black.';
+                }
+
+                updateColors();
+                console.log(`Mode changed to: ${mode}`);
+            });
+        });
+
+        function setPreset(preset) {
+            if (preset === 'white') {
+                r1.value = 255;
+                g1.value = 255;
+                b1.value = 255;
+            } else if (preset === 'yellow') {
+                r1.value = 255;
+                g1.value = 255;
+                b1.value = 0;
+            }
+            updateColors();
+        }
+
+        updateColors();
+    </script>
+</body>
+</html>

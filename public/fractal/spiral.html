@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spiral Patterns</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            z-index: 10;
+            max-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #0f0;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        select, button {
+            width: 100%;
+            padding: 8px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #0a0;
+        }
+        #nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+        }
+        #nav a {
+            display: block;
+            color: #0f0;
+            text-decoration: none;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        #nav a:hover {
+            background: #0f0;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+
+        <div id="controls">
+            <h3 style="margin-bottom: 15px; text-align: center;">SPIRAL PATTERNS</h3>
+
+            <div class="control-group">
+                <label>Pattern Type</label>
+                <select id="pattern">
+                    <option value="fibonacci">Fibonacci Spiral</option>
+                    <option value="golden">Golden Spiral</option>
+                    <option value="phyllotaxis">Phyllotaxis</option>
+                    <option value="fermat">Fermat's Spiral</option>
+                    <option value="polygonal">Polygonal Spiral</option>
+                    <option value="hypnotic">Hypnotic Spiral</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Density <span class="value-display" id="densityValue">1000</span></label>
+                <input type="range" id="density" min="100" max="3000" value="1000" step="100">
+            </div>
+
+            <div class="control-group">
+                <label>Scale <span class="value-display" id="scaleValue">3.0</span></label>
+                <input type="range" id="scale" min="0.5" max="10" value="3" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label>Rotation <span class="value-display" id="rotationValue">0°</span></label>
+                <input type="range" id="rotation" min="0" max="360" value="0" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>Color Mode</label>
+                <select id="colorMode">
+                    <option value="rainbow">Rainbow</option>
+                    <option value="depth">Depth</option>
+                    <option value="radial">Radial</option>
+                    <option value="angle">Angle</option>
+                    <option value="psychedelic">Psychedelic</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button id="animateBtn">Animate Rotation</button>
+            </div>
+
+            <div class="control-group">
+                <button id="randomBtn">Randomize</button>
+            </div>
+        </div>
+
+        <div id="nav">
+            <a href="index.html">Fractal Explorer</a>
+            <a href="tree.html">Recursive Trees</a>
+            <a href="subdivision.html">Subdivisions</a>
+            <a href="../index.html">Main Hub</a>
+        </div>
+    </div>
+
+    <script>
+        console.log('🌀 SPIRAL PATTERN GENERATOR INITIALIZING...');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const dpr = window.devicePixelRatio || 1;
+        let width, height;
+
+        const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio
+
+        let params = {
+            pattern: 'fibonacci',
+            density: 1000,
+            scale: 3,
+            rotation: 0,
+            colorMode: 'rainbow'
+        };
+
+        let animating = false;
+        let animationFrame = null;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+        }
+
+        function getColor(index, total, mode, angle, radius) {
+            const t = index / total;
+
+            switch(mode) {
+                case 'rainbow':
+                    return `hsl(${t * 360}, 80%, 50%)`;
+
+                case 'depth':
+                    return `hsl(${180 + t * 180}, 70%, ${30 + t * 40}%)`;
+
+                case 'radial':
+                    const r = radius / (Math.min(width, height) / 2);
+                    return `hsl(${r * 360}, 80%, 50%)`;
+
+                case 'angle':
+                    return `hsl(${(angle * 180 / Math.PI) % 360}, 80%, 50%)`;
+
+                case 'psychedelic':
+                    return `hsl(${(t * 360 + angle * 180 / Math.PI) % 360}, 100%, ${40 + Math.sin(t * Math.PI * 4) * 20}%)`;
+
+                default:
+                    return '#0f0';
+            }
+        }
+
+        function drawPhyllotaxis() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~137.5 degrees
+
+            for (let i = 0; i < params.density; i++) {
+                const angle = i * goldenAngle + params.rotation * Math.PI / 180;
+                const radius = params.scale * Math.sqrt(i);
+
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                const size = Math.min(5, 2 + radius / 50);
+
+                ctx.fillStyle = getColor(i, params.density, params.colorMode, angle, radius);
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawFibonacciSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            let a = 0, b = 1;
+            let angle = params.rotation * Math.PI / 180;
+
+            for (let i = 0; i < 20; i++) {
+                const size = b * params.scale;
+
+                const x = centerX + size * Math.cos(angle);
+                const y = centerY + size * Math.sin(angle);
+
+                ctx.strokeStyle = getColor(i, 20, params.colorMode, angle, size);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x - size, y - size, size, angle, angle + Math.PI / 2);
+                ctx.stroke();
+
+                angle += Math.PI / 2;
+
+                let temp = b;
+                b = a + b;
+                a = temp;
+            }
+
+            // Draw dots along spiral
+            a = 0; b = 1;
+            angle = params.rotation * Math.PI / 180;
+            for (let i = 0; i < params.density / 50; i++) {
+                for (let j = 0; j <= 100; j++) {
+                    const t = j / 100;
+                    const size = b * params.scale;
+                    const spiralAngle = angle + t * Math.PI / 2;
+                    const x = centerX + size * (Math.cos(angle) - Math.cos(spiralAngle));
+                    const y = centerY + size * (Math.sin(angle) - Math.sin(spiralAngle));
+
+                    ctx.fillStyle = getColor(i * 100 + j, params.density, params.colorMode, spiralAngle, size);
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                angle += Math.PI / 2;
+                let temp = b;
+                b = a + b;
+                a = temp;
+            }
+        }
+
+        function drawGoldenSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            ctx.strokeStyle = getColor(0, 1, params.colorMode, 0, 0);
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            for (let theta = 0; theta < Math.PI * 8; theta += 0.01) {
+                const r = params.scale * Math.pow(PHI, theta * 2 / Math.PI);
+                const angle = theta + params.rotation * Math.PI / 180;
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+
+                if (theta === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.strokeStyle = getColor(theta / (Math.PI * 8), 1, params.colorMode, angle, r);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function drawFermatSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            for (let i = 0; i < params.density; i++) {
+                const theta = i * 0.1;
+                const r = params.scale * Math.sqrt(theta);
+                const angle = theta + params.rotation * Math.PI / 180;
+
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+
+                const size = 3;
+
+                ctx.fillStyle = getColor(i, params.density, params.colorMode, angle, r);
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Mirror
+                const x2 = centerX - r * Math.cos(angle);
+                const y2 = centerY - r * Math.sin(angle);
+                ctx.beginPath();
+                ctx.arc(x2, y2, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawPolygonalSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const sides = 6;
+
+            let x = centerX, y = centerY;
+            let angle = params.rotation * Math.PI / 180;
+            let step = params.scale;
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+
+            for (let i = 0; i < params.density / 10; i++) {
+                const sideAngle = angle + (i % sides) * (Math.PI * 2 / sides);
+                const newX = x + step * Math.cos(sideAngle);
+                const newY = y + step * Math.sin(sideAngle);
+
+                ctx.strokeStyle = getColor(i, params.density / 10, params.colorMode, sideAngle, step);
+                ctx.lineWidth = 2;
+                ctx.lineTo(newX, newY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(newX, newY);
+
+                x = newX;
+                y = newY;
+                step += params.scale * 0.1;
+            }
+        }
+
+        function drawHypnoticSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            for (let i = 0; i < params.density / 5; i++) {
+                const theta = i * 0.5;
+                const r = params.scale * theta;
+                const angle = theta + params.rotation * Math.PI / 180;
+
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+
+                ctx.strokeStyle = getColor(i, params.density / 5, params.colorMode, angle, r);
+                ctx.lineWidth = Math.max(1, 10 - theta / 10);
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r, angle - 0.05, angle + 0.05);
+                ctx.stroke();
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            switch(params.pattern) {
+                case 'fibonacci':
+                    drawFibonacciSpiral();
+                    break;
+                case 'golden':
+                    drawGoldenSpiral();
+                    break;
+                case 'phyllotaxis':
+                    drawPhyllotaxis();
+                    break;
+                case 'fermat':
+                    drawFermatSpiral();
+                    break;
+                case 'polygonal':
+                    drawPolygonalSpiral();
+                    break;
+                case 'hypnotic':
+                    drawHypnoticSpiral();
+                    break;
+            }
+
+            console.log(`Drew ${params.pattern} spiral with ${params.density} elements`);
+        }
+
+        // Event handlers
+        document.getElementById('pattern').addEventListener('change', (e) => {
+            params.pattern = e.target.value;
+            draw();
+        });
+
+        document.getElementById('density').addEventListener('input', (e) => {
+            params.density = parseInt(e.target.value);
+            document.getElementById('densityValue').textContent = params.density;
+            draw();
+        });
+
+        document.getElementById('scale').addEventListener('input', (e) => {
+            params.scale = parseFloat(e.target.value);
+            document.getElementById('scaleValue').textContent = params.scale.toFixed(1);
+            draw();
+        });
+
+        document.getElementById('rotation').addEventListener('input', (e) => {
+            params.rotation = parseInt(e.target.value);
+            document.getElementById('rotationValue').textContent = params.rotation + '°';
+            draw();
+        });
+
+        document.getElementById('colorMode').addEventListener('change', (e) => {
+            params.colorMode = e.target.value;
+            draw();
+        });
+
+        document.getElementById('animateBtn').addEventListener('click', () => {
+            animating = !animating;
+            if (animating) {
+                document.getElementById('animateBtn').textContent = 'Stop Animation';
+                animate();
+            } else {
+                document.getElementById('animateBtn').textContent = 'Animate Rotation';
+                cancelAnimationFrame(animationFrame);
+            }
+        });
+
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            params.density = Math.floor(Math.random() * 2000) + 500;
+            params.scale = Math.random() * 8 + 1;
+            params.rotation = Math.floor(Math.random() * 360);
+
+            document.getElementById('density').value = params.density;
+            document.getElementById('densityValue').textContent = params.density;
+            document.getElementById('scale').value = params.scale;
+            document.getElementById('scaleValue').textContent = params.scale.toFixed(1);
+            document.getElementById('rotation').value = params.rotation;
+            document.getElementById('rotationValue').textContent = params.rotation + '°';
+
+            draw();
+        });
+
+        function animate() {
+            if (!animating) return;
+
+            params.rotation = (params.rotation + 1) % 360;
+            document.getElementById('rotation').value = params.rotation;
+            document.getElementById('rotationValue').textContent = params.rotation + '°';
+
+            draw();
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            draw();
+        });
+
+        // Initialize
+        resizeCanvas();
+        draw();
+
+        console.log('🌀 Spiral Pattern Generator ready!');
+    </script>
+</body>
+</html>

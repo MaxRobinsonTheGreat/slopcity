@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digit Recognizer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        .home-link:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(-5px);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+        .panel {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .draw-area {
+            text-align: center;
+        }
+        #canvas {
+            background: white;
+            border-radius: 10px;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .prediction {
+            font-size: 4em;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            text-shadow: 0 0 20px currentColor;
+        }
+        .confidence-bars {
+            margin-top: 20px;
+        }
+        .bar-item {
+            margin-bottom: 10px;
+        }
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .bar-bg {
+            background: rgba(0,0,0,0.3);
+            height: 25px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 0.85em;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 15px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="home-link">← Back</a>
+    <div class="container">
+        <h1>Digit Recognizer</h1>
+        <p class="subtitle">Draw a digit and watch the neural network recognize it in real-time</p>
+
+        <div class="main-content">
+            <div class="panel draw-area">
+                <h2 style="margin-bottom: 20px;">Draw Here</h2>
+                <canvas id="canvas" width="280" height="280"></canvas>
+                <button onclick="clear()">Clear Canvas</button>
+                <div class="info">
+                    <strong>How it works:</strong><br>
+                    This simulates a simple neural network trained on handwritten digits. Draw any digit 0-9 with your mouse or finger. The network analyzes the pixel patterns and makes its prediction.
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 style="margin-bottom: 20px;">Prediction</h2>
+                <div class="prediction" id="prediction">Draw a digit</div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px;">Confidence Levels</h3>
+                <div class="confidence-bars" id="bars"></div>
+
+                <button onclick="location.href='index.html'" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); margin-top: 30px;">
+                    Back to Trainer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Digit Recognizer initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let hasDrawn = false;
+
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 20;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            if (e.touches) {
+                return {
+                    x: (e.touches[0].clientX - rect.left) * scaleX,
+                    y: (e.touches[0].clientY - rect.top) * scaleY
+                };
+            }
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            hasDrawn = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            updatePrediction();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            hasDrawn = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            updatePrediction();
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDrawing = false;
+        });
+
+        function clear() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            hasDrawn = false;
+            document.getElementById('prediction').textContent = 'Draw a digit';
+            document.getElementById('bars').innerHTML = '';
+            console.log('Canvas cleared');
+        }
+
+        function analyzeDrawing() {
+            if (!hasDrawn) return null;
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Calculate center of mass
+            let totalMass = 0;
+            let centerX = 0;
+            let centerY = 0;
+
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const i = (y * canvas.width + x) * 4;
+                    const darkness = 255 - data[i]; // Invert (white bg, black drawing)
+                    if (darkness > 50) {
+                        totalMass += darkness;
+                        centerX += x * darkness;
+                        centerY += y * darkness;
+                    }
+                }
+            }
+
+            if (totalMass === 0) return null;
+
+            centerX /= totalMass;
+            centerY /= totalMass;
+
+            // Calculate features
+            const features = {
+                centerX: centerX / canvas.width,
+                centerY: centerY / canvas.height,
+                topHeavy: 0,
+                bottomHeavy: 0,
+                leftHeavy: 0,
+                rightHeavy: 0,
+                density: totalMass / (canvas.width * canvas.height * 255)
+            };
+
+            // Quadrant analysis
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const i = (y * canvas.width + x) * 4;
+                    const darkness = 255 - data[i];
+                    if (darkness > 50) {
+                        if (y < centerY) features.topHeavy += darkness;
+                        else features.bottomHeavy += darkness;
+                        if (x < centerX) features.leftHeavy += darkness;
+                        else features.rightHeavy += darkness;
+                    }
+                }
+            }
+
+            return features;
+        }
+
+        function predictDigit(features) {
+            if (!features) return null;
+
+            // Simple heuristic-based classifier
+            const scores = {
+                0: 0, 1: 0, 2: 0, 3: 0, 4: 0,
+                5: 0, 6: 0, 7: 0, 8: 0, 9: 0
+            };
+
+            // 1: Usually thin, right-aligned, top-heavy
+            scores[1] = features.rightHeavy / features.leftHeavy * 20 +
+                       (1 - features.density) * 30;
+
+            // 0: Centered, dense at edges
+            scores[0] = (0.5 - Math.abs(features.centerX - 0.5)) * 40 +
+                       features.density * 20;
+
+            // 7: Top-heavy, right-leaning
+            scores[7] = features.topHeavy / features.bottomHeavy * 30 +
+                       features.rightHeavy / features.leftHeavy * 10;
+
+            // 8: Very dense, centered
+            scores[8] = features.density * 50 +
+                       (0.5 - Math.abs(features.centerX - 0.5)) * 20;
+
+            // 2: Top-heavy, some right bias
+            scores[2] = features.topHeavy / features.bottomHeavy * 20 +
+                       features.density * 15;
+
+            // 3: Right-heavy, centered vertically
+            scores[3] = features.rightHeavy / features.leftHeavy * 25 +
+                       (0.5 - Math.abs(features.centerY - 0.5)) * 15;
+
+            // 4: Top-heavy, some left bias
+            scores[4] = features.topHeavy / features.bottomHeavy * 15 +
+                       features.leftHeavy / features.rightHeavy * 10;
+
+            // 5: Top-heavy
+            scores[5] = features.topHeavy / features.bottomHeavy * 20 +
+                       features.density * 10;
+
+            // 6: Bottom-heavy, left bias
+            scores[6] = features.bottomHeavy / features.topHeavy * 25 +
+                       features.leftHeavy / features.rightHeavy * 10;
+
+            // 9: Top-heavy, right bias
+            scores[9] = features.topHeavy / features.bottomHeavy * 25 +
+                       features.rightHeavy / features.leftHeavy * 15;
+
+            // Normalize scores
+            const total = Object.values(scores).reduce((a, b) => a + b, 0);
+            for (let i = 0; i <= 9; i++) {
+                scores[i] = (scores[i] / total) * 100;
+            }
+
+            return scores;
+        }
+
+        function updatePrediction() {
+            const features = analyzeDrawing();
+            if (!features) return;
+
+            const scores = predictDigit(features);
+            if (!scores) return;
+
+            // Find best prediction
+            let maxScore = 0;
+            let prediction = 0;
+            for (let i = 0; i <= 9; i++) {
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    prediction = i;
+                }
+            }
+
+            document.getElementById('prediction').textContent = prediction;
+
+            // Update confidence bars
+            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const barsHTML = sorted.map(([digit, score]) => `
+                <div class="bar-item">
+                    <div class="bar-label">
+                        <span>Digit ${digit}</span>
+                        <span>${score.toFixed(1)}%</span>
+                    </div>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width: ${score}%"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('bars').innerHTML = barsHTML;
+        }
+
+        console.log('Draw a digit to see predictions. This uses simple heuristics to simulate neural network behavior.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation Functions</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        .home-link:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(-5px);
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        canvas {
+            display: block;
+            background: #0a0a15;
+            border-radius: 10px;
+            width: 100%;
+            height: 200px;
+            margin-bottom: 15px;
+        }
+        .formula {
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .desc {
+            font-size: 0.85em;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        .interactive {
+            margin-top: 30px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .interactive h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .interactive canvas {
+            height: 400px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button.active {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="home-link">← Back</a>
+    <div class="container">
+        <h1>Activation Functions</h1>
+        <p class="subtitle">The non-linear transformations that give neural networks their power</p>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Sigmoid</h3>
+                <canvas id="sigmoid"></canvas>
+                <div class="formula">σ(x) = 1 / (1 + e^(-x))</div>
+                <div class="desc">
+                    Classic S-curve. Squashes output to (0, 1). Smooth gradient but suffers from vanishing gradients.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Tanh</h3>
+                <canvas id="tanh"></canvas>
+                <div class="formula">tanh(x) = (e^x - e^(-x)) / (e^x + e^(-x))</div>
+                <div class="desc">
+                    Zero-centered version of sigmoid. Output range: (-1, 1). Better than sigmoid but still has vanishing gradient.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>ReLU</h3>
+                <canvas id="relu"></canvas>
+                <div class="formula">ReLU(x) = max(0, x)</div>
+                <div class="desc">
+                    Most popular! Fast, simple, no vanishing gradient for positive values. Can "die" if negative.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Leaky ReLU</h3>
+                <canvas id="leaky"></canvas>
+                <div class="formula">LReLU(x) = max(0.01x, x)</div>
+                <div class="desc">
+                    Fixes dying ReLU problem with small negative slope. Prevents neuron death.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>ELU</h3>
+                <canvas id="elu"></canvas>
+                <div class="formula">ELU(x) = x if x > 0 else α(e^x - 1)</div>
+                <div class="desc">
+                    Smooth negative values. Pushes mean activations closer to zero. More robust to noise.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Softplus</h3>
+                <canvas id="softplus"></canvas>
+                <div class="formula">softplus(x) = ln(1 + e^x)</div>
+                <div class="desc">
+                    Smooth approximation of ReLU. Differentiable everywhere. Used in some probabilistic models.
+                </div>
+            </div>
+        </div>
+
+        <div class="interactive">
+            <h2>Interactive Comparison</h2>
+            <canvas id="main"></canvas>
+            <div class="controls">
+                <button class="active" onclick="toggleFunc('sigmoid')">Sigmoid</button>
+                <button onclick="toggleFunc('tanh')">Tanh</button>
+                <button class="active" onclick="toggleFunc('relu')">ReLU</button>
+                <button onclick="toggleFunc('leaky')">Leaky ReLU</button>
+                <button onclick="toggleFunc('elu')">ELU</button>
+                <button onclick="toggleFunc('softplus')">Softplus</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Activation Functions Explorer initialized');
+
+        // Activation functions
+        const activations = {
+            sigmoid: x => 1 / (1 + Math.exp(-x)),
+            tanh: x => Math.tanh(x),
+            relu: x => Math.max(0, x),
+            leaky: x => Math.max(0.01 * x, x),
+            elu: x => x > 0 ? x : 0.5 * (Math.exp(x) - 1),
+            softplus: x => Math.log(1 + Math.exp(x))
+        };
+
+        const colors = {
+            sigmoid: '#e74c3c',
+            tanh: '#3498db',
+            relu: '#2ecc71',
+            leaky: '#f39c12',
+            elu: '#9b59b6',
+            softplus: '#1abc9c'
+        };
+
+        let activeFunc = new Set(['sigmoid', 'relu']);
+
+        function drawFunction(canvasId, func, color, label) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Background
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+
+            // Horizontal lines
+            for (let y = 0; y <= h; y += h / 4) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Vertical line (y-axis)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 0);
+            ctx.lineTo(w / 2, h);
+            ctx.stroke();
+
+            // Horizontal line (x-axis)
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(w, h / 2);
+            ctx.stroke();
+
+            // Plot function
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const xRange = 6;
+            const yRange = 3;
+
+            for (let px = 0; px < w; px++) {
+                const x = (px / w - 0.5) * xRange * 2;
+                const y = func(x);
+                const py = h / 2 - (y / yRange) * (h / 2);
+
+                if (px === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.stroke();
+
+            // Add label
+            if (label) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = '12px -apple-system, sans-serif';
+                ctx.fillText(label, 10, 20);
+            }
+        }
+
+        function drawMain() {
+            const canvas = document.getElementById('main');
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Background
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+
+            for (let y = 0; y <= h; y += h / 8) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            for (let x = 0; x <= w; x += w / 10) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 0);
+            ctx.lineTo(w / 2, h);
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(w, h / 2);
+            ctx.stroke();
+
+            // Plot active functions
+            const xRange = 6;
+            const yRange = 3;
+
+            for (const name of activeFunc) {
+                const func = activations[name];
+                const color = colors[name];
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+                ctx.beginPath();
+
+                for (let px = 0; px < w; px++) {
+                    const x = (px / w - 0.5) * xRange * 2;
+                    const y = func(x);
+                    const py = h / 2 - (y / yRange) * (h / 2);
+
+                    if (px === 0) {
+                        ctx.moveTo(px, py);
+                    } else {
+                        ctx.lineTo(px, py);
+                    }
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Legend
+            let legendY = 20;
+            for (const name of activeFunc) {
+                ctx.fillStyle = colors[name];
+                ctx.fillRect(10, legendY, 15, 15);
+                ctx.fillStyle = 'white';
+                ctx.font = '14px -apple-system, sans-serif';
+                ctx.fillText(name, 30, legendY + 12);
+                legendY += 25;
+            }
+
+            requestAnimationFrame(drawMain);
+        }
+
+        function toggleFunc(name) {
+            if (activeFunc.has(name)) {
+                activeFunc.delete(name);
+            } else {
+                activeFunc.add(name);
+            }
+
+            // Update button states
+            document.querySelectorAll('.controls button').forEach((btn, i) => {
+                const funcName = ['sigmoid', 'tanh', 'relu', 'leaky', 'elu', 'softplus'][i];
+                btn.classList.toggle('active', activeFunc.has(funcName));
+            });
+
+            console.log('Active functions:', Array.from(activeFunc));
+        }
+
+        // Draw all individual graphs
+        drawFunction('sigmoid', activations.sigmoid, colors.sigmoid);
+        drawFunction('tanh', activations.tanh, colors.tanh);
+        drawFunction('relu', activations.relu, colors.relu);
+        drawFunction('leaky', activations.leaky, colors.leaky);
+        drawFunction('elu', activations.elu, colors.elu);
+        drawFunction('softplus', activations.softplus, colors.softplus);
+
+        // Start main animation
+        drawMain();
+
+        console.log('Activation functions ready. Click buttons to compare.');
+    </script>
+</body>
+</html>

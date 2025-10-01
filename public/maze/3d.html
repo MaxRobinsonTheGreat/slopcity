@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Maze - First Person Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5)); }
+            50% { filter: drop-shadow(0 0 30px rgba(118, 75, 162, 0.8)); }
+        }
+
+        .nav {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .nav a {
+            padding: 8px 16px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            color: #fff;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+
+        .nav a:hover {
+            background: rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .game-area {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        .view-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            border: 3px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(102, 126, 234, 0.3);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .minimap-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .minimap {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .minimap h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .controls-info {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .controls-info p {
+            font-size: 0.85em;
+            line-height: 1.6;
+            color: #cbd5e0;
+            margin-bottom: 8px;
+        }
+
+        .controls-info kbd {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9em;
+            margin: 0 2px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: #a0aec0;
+            text-transform: uppercase;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .victory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(16, 185, 129, 0.95);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+        }
+
+        .victory.show {
+            display: block;
+            animation: victoryPop 0.5s ease-out;
+        }
+
+        @keyframes victoryPop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 968px) {
+            .game-area {
+                grid-template-columns: 1fr;
+            }
+            .minimap-panel {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>3D MAZE EXPLORER</h1>
+            <div class="nav">
+                <a href="index.html">Main</a>
+                <a href="algorithms.html">Algorithm Showcase</a>
+                <a href="race.html">Solver Race</a>
+                <a href="3d.html">3D Maze</a>
+                <a href="../index.html">Hub</a>
+            </div>
+        </header>
+
+        <div class="game-area">
+            <div class="view-container">
+                <canvas id="gameCanvas"></canvas>
+                <div class="victory" id="victory">
+                    <h2 style="font-size: 2.5em; margin-bottom: 20px;">YOU WIN!</h2>
+                    <p style="font-size: 1.2em;">Maze completed!</p>
+                    <button onclick="generateNewMaze()">New Maze</button>
+                </div>
+            </div>
+
+            <div class="minimap-panel">
+                <div class="minimap">
+                    <h3>MINIMAP</h3>
+                    <canvas id="minimapCanvas" width="220" height="220"></canvas>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value" id="moves">0</div>
+                            <div class="stat-label">Moves</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="time">0s</div>
+                            <div class="stat-label">Time</div>
+                        </div>
+                    </div>
+                    <button onclick="generateNewMaze()">New Maze</button>
+                </div>
+
+                <div class="controls-info">
+                    <h3>CONTROLS</h3>
+                    <p><kbd>W</kbd> <kbd>↑</kbd> Move Forward</p>
+                    <p><kbd>S</kbd> <kbd>↓</kbd> Move Backward</p>
+                    <p><kbd>A</kbd> <kbd>←</kbd> Turn Left</p>
+                    <p><kbd>D</kbd> <kbd>→</kbd> Turn Right</p>
+                    <p style="margin-top: 15px; border-top: 1px solid rgba(102, 126, 234, 0.3); padding-top: 10px;">
+                        Navigate from the <span style="color: #10b981;">green start</span> to the <span style="color: #ef4444;">red goal</span> in the 3D maze!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const minimapCtx = minimapCanvas.getContext('2d');
+
+        const mazeSize = 15;
+        let maze = [];
+        let playerX = 0.5;
+        let playerY = 0.5;
+        let playerAngle = 0;
+        let moves = 0;
+        let startTime = Date.now();
+        let gameWon = false;
+
+        class Cell {
+            constructor(row, col) {
+                this.row = row;
+                this.col = col;
+                this.walls = { top: true, right: true, bottom: true, left: true };
+                this.visited = false;
+            }
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        function initMaze() {
+            maze = [];
+            for (let r = 0; r < mazeSize; r++) {
+                maze[r] = [];
+                for (let c = 0; c < mazeSize; c++) {
+                    maze[r][c] = new Cell(r, c);
+                }
+            }
+        }
+
+        function generateMaze() {
+            const stack = [];
+            let current = maze[0][0];
+            current.visited = true;
+
+            while (true) {
+                const neighbors = getNeighbors(current, true);
+
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    stack.push(current);
+                    removeWall(current, next);
+                    current = next;
+                    current.visited = true;
+                } else if (stack.length > 0) {
+                    current = stack.pop();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        function getNeighbors(cell, unvisitedOnly = false) {
+            const neighbors = [];
+            const { row, col } = cell;
+
+            if (row > 0) neighbors.push(maze[row - 1][col]);
+            if (col < mazeSize - 1) neighbors.push(maze[row][col + 1]);
+            if (row < mazeSize - 1) neighbors.push(maze[row + 1][col]);
+            if (col > 0) neighbors.push(maze[row][col - 1]);
+
+            return unvisitedOnly ? neighbors.filter(n => !n.visited) : neighbors;
+        }
+
+        function removeWall(current, next) {
+            const dx = current.col - next.col;
+            const dy = current.row - next.row;
+
+            if (dx === 1) {
+                current.walls.left = false;
+                next.walls.right = false;
+            } else if (dx === -1) {
+                current.walls.right = false;
+                next.walls.left = false;
+            }
+
+            if (dy === 1) {
+                current.walls.top = false;
+                next.walls.bottom = false;
+            } else if (dy === -1) {
+                current.walls.bottom = false;
+                next.walls.top = false;
+            }
+        }
+
+        function render3D() {
+            // Clear canvas
+            ctx.fillStyle = '#1a1f3a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ceiling
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+
+            // Draw floor
+            ctx.fillStyle = '#0d1129';
+            ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+
+            // Raycast
+            const fov = Math.PI / 3;
+            const numRays = canvas.width;
+            const maxDepth = 20;
+
+            for (let i = 0; i < numRays; i++) {
+                const rayAngle = (playerAngle - fov / 2) + (fov * i / numRays);
+                const rayDirX = Math.cos(rayAngle);
+                const rayDirY = Math.sin(rayAngle);
+
+                let distance = 0;
+                let hit = false;
+                let wallType = 'normal';
+
+                while (!hit && distance < maxDepth) {
+                    distance += 0.05;
+                    const testX = playerX + rayDirX * distance;
+                    const testY = playerY + rayDirY * distance;
+
+                    const cellX = Math.floor(testX);
+                    const cellY = Math.floor(testY);
+
+                    if (cellX < 0 || cellX >= mazeSize || cellY < 0 || cellY >= mazeSize) {
+                        hit = true;
+                        continue;
+                    }
+
+                    const cell = maze[cellY][cellX];
+                    const localX = testX - cellX;
+                    const localY = testY - cellY;
+
+                    // Check start position
+                    if (cellX === 0 && cellY === 0) {
+                        wallType = 'start';
+                    }
+
+                    // Check goal position
+                    if (cellX === mazeSize - 1 && cellY === mazeSize - 1) {
+                        wallType = 'goal';
+                    }
+
+                    // Check walls
+                    if (cell.walls.top && localY < 0.05) hit = true;
+                    else if (cell.walls.bottom && localY > 0.95) hit = true;
+                    else if (cell.walls.left && localX < 0.05) hit = true;
+                    else if (cell.walls.right && localX > 0.95) hit = true;
+                }
+
+                // Fix fish-eye effect
+                distance *= Math.cos(rayAngle - playerAngle);
+
+                const wallHeight = (canvas.height / distance) * 0.7;
+                const wallTop = (canvas.height - wallHeight) / 2;
+
+                // Calculate wall color based on distance
+                const brightness = Math.max(0, 1 - distance / maxDepth);
+
+                let baseColor;
+                if (wallType === 'start') {
+                    baseColor = { r: 16, g: 185, b: 129 };
+                } else if (wallType === 'goal') {
+                    baseColor = { r: 239, g: 68, b: 68 };
+                } else {
+                    baseColor = { r: 102, g: 126, b: 234 };
+                }
+
+                const r = Math.floor(baseColor.r * brightness);
+                const g = Math.floor(baseColor.g * brightness);
+                const b = Math.floor(baseColor.b * brightness);
+
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillRect(i, wallTop, 1, wallHeight);
+
+                // Add glow effect
+                if (brightness > 0.7) {
+                    ctx.fillStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${(brightness - 0.7) * 0.3})`;
+                    ctx.fillRect(i, wallTop - 2, 1, wallHeight + 4);
+                }
+            }
+        }
+
+        function renderMinimap() {
+            const cellSize = 220 / mazeSize;
+
+            minimapCtx.fillStyle = '#000';
+            minimapCtx.fillRect(0, 0, 220, 220);
+
+            // Draw maze
+            for (let r = 0; r < mazeSize; r++) {
+                for (let c = 0; c < mazeSize; c++) {
+                    const cell = maze[r][c];
+                    const x = c * cellSize;
+                    const y = r * cellSize;
+
+                    // Draw cell background
+                    if (r === 0 && c === 0) {
+                        minimapCtx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+                    } else if (r === mazeSize - 1 && c === mazeSize - 1) {
+                        minimapCtx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+                    } else {
+                        minimapCtx.fillStyle = '#000';
+                    }
+                    minimapCtx.fillRect(x, y, cellSize, cellSize);
+
+                    // Draw walls
+                    minimapCtx.strokeStyle = '#667eea';
+                    minimapCtx.lineWidth = 2;
+                    minimapCtx.beginPath();
+                    if (cell.walls.top) {
+                        minimapCtx.moveTo(x, y);
+                        minimapCtx.lineTo(x + cellSize, y);
+                    }
+                    if (cell.walls.right) {
+                        minimapCtx.moveTo(x + cellSize, y);
+                        minimapCtx.lineTo(x + cellSize, y + cellSize);
+                    }
+                    if (cell.walls.bottom) {
+                        minimapCtx.moveTo(x + cellSize, y + cellSize);
+                        minimapCtx.lineTo(x, y + cellSize);
+                    }
+                    if (cell.walls.left) {
+                        minimapCtx.moveTo(x, y + cellSize);
+                        minimapCtx.lineTo(x, y);
+                    }
+                    minimapCtx.stroke();
+                }
+            }
+
+            // Draw player
+            const playerDrawX = playerX * cellSize;
+            const playerDrawY = playerY * cellSize;
+
+            minimapCtx.fillStyle = '#f59e0b';
+            minimapCtx.beginPath();
+            minimapCtx.arc(playerDrawX, playerDrawY, 4, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Draw direction indicator
+            minimapCtx.strokeStyle = '#f59e0b';
+            minimapCtx.lineWidth = 2;
+            minimapCtx.beginPath();
+            minimapCtx.moveTo(playerDrawX, playerDrawY);
+            minimapCtx.lineTo(
+                playerDrawX + Math.cos(playerAngle) * 8,
+                playerDrawY + Math.sin(playerAngle) * 8
+            );
+            minimapCtx.stroke();
+        }
+
+        function checkWin() {
+            const cellX = Math.floor(playerX);
+            const cellY = Math.floor(playerY);
+
+            if (cellX === mazeSize - 1 && cellY === mazeSize - 1 && !gameWon) {
+                gameWon = true;
+                document.getElementById('victory').classList.add('show');
+                console.log(`Victory! Completed in ${moves} moves and ${Math.floor((Date.now() - startTime) / 1000)}s`);
+            }
+        }
+
+        function movePlayer(forward) {
+            const moveSpeed = 0.1;
+            const direction = forward ? 1 : -1;
+
+            const newX = playerX + Math.cos(playerAngle) * moveSpeed * direction;
+            const newY = playerY + Math.sin(playerAngle) * moveSpeed * direction;
+
+            // Check collision
+            const cellX = Math.floor(newX);
+            const cellY = Math.floor(newY);
+
+            if (cellX >= 0 && cellX < mazeSize && cellY >= 0 && cellY < mazeSize) {
+                const cell = maze[cellY][cellX];
+                const localX = newX - cellX;
+                const localY = newY - cellY;
+
+                let canMove = true;
+
+                if (cell.walls.top && localY < 0.1) canMove = false;
+                if (cell.walls.bottom && localY > 0.9) canMove = false;
+                if (cell.walls.left && localX < 0.1) canMove = false;
+                if (cell.walls.right && localX > 0.9) canMove = false;
+
+                if (canMove) {
+                    playerX = newX;
+                    playerY = newY;
+                    moves++;
+                    document.getElementById('moves').textContent = moves;
+                    checkWin();
+                }
+            }
+        }
+
+        function updateTime() {
+            if (!gameWon) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('time').textContent = elapsed + 's';
+            }
+        }
+
+        function generateNewMaze() {
+            initMaze();
+            generateMaze();
+            playerX = 0.5;
+            playerY = 0.5;
+            playerAngle = 0;
+            moves = 0;
+            startTime = Date.now();
+            gameWon = false;
+            document.getElementById('victory').classList.remove('show');
+            document.getElementById('moves').textContent = '0';
+            document.getElementById('time').textContent = '0s';
+            console.log('New 3D maze generated');
+        }
+
+        function gameLoop() {
+            render3D();
+            renderMinimap();
+            updateTime();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (gameWon) return;
+
+            switch (e.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    movePlayer(true);
+                    break;
+                case 's':
+                case 'arrowdown':
+                    movePlayer(false);
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    playerAngle -= 0.1;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    playerAngle += 0.1;
+                    break;
+            }
+        });
+
+        // Initialize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        generateNewMaze();
+        gameLoop();
+        console.log('3D maze initialized');
+    </script>
+</body>
+</html>

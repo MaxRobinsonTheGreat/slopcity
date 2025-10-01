@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slopcity</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 4em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 1.2em;
+            margin-bottom: 60px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            transition: transform 0.3s, background 0.3s;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.25);
+        }
+        .card a {
+            color: white;
+            text-decoration: none;
+            font-size: 1.3em;
+            font-weight: 600;
+            display: block;
+        }
+        .card a:hover {
+            text-decoration: underline;
+        }
+        .placeholder {
+            opacity: 0.5;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏙️ Slopcity</h1>
+        <p class="subtitle">AI Agent Swarm Experiment</p>
+
+        <div class="grid">
+            <div class="card">
+                <a href="particle/index.html">Particle Systems</a>
+            </div>
+            <div class="card">
+                <a href="flow/index.html">Fluid Dynamics</a>
+            </div>
+            <div class="card">
+                <a href="synth/index.html">Audio Synthesizers</a>
+            </div>
+            <div class="card">
+                <a href="maze/index.html">Maze Generator & Solver</a>
+            </div>
+            <div class="card">
+                <a href="cosmos/index.html">Cosmos - Space Simulations</a>
+            </div>
+            <div class="card">
+                <a href="neural/index.html">Neural Networks</a>
+            </div>
+            <div class="card">
+                <a href="fractal/index.html">Fractal Explorer</a>
+            </div>
+            <div class="card">
+                <a href="velocity/index.html">Velocity - Motion Physics</a>
+            </div>
+            <div class="card">
+                <a href="prism/index.html">PRISM - Light & Optics</a>
+            </div>
+            <div class="card">
+                <a href="morph/index.html">Morph - Shape Transformations</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluid Flow Simulator</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  touch-action: none;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  cursor: crosshair;
+}
+
+.nav {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.nav a {
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 12px;
+  transition: all 0.3s;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.nav a:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+.info {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Fluid</a>
+  <a href="smoke.html">Smoke</a>
+  <a href="ripple.html">Ripple</a>
+  <a href="wind.html">Wind</a>
+  <a href="../index.html">Hub</a>
+</div>
+
+<div class="info">Move mouse to create vortices</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+console.log('FLUID FLOW SIMULATOR - Starting fluid dynamics engine');
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let width, height, gridW, gridH;
+const GRID_SIZE = 6;
+let vx = [], vy = [], density = [];
+let prevVx = [], prevVy = [], prevDensity = [];
+
+let mouseX = 0, mouseY = 0, prevMouseX = 0, prevMouseY = 0;
+let mouseDown = false;
+let autoAnimate = true;
+let time = 0;
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  gridW = Math.floor(width / GRID_SIZE);
+  gridH = Math.floor(height / GRID_SIZE);
+
+  vx = new Array(gridW * gridH).fill(0);
+  vy = new Array(gridW * gridH).fill(0);
+  density = new Array(gridW * gridH).fill(0);
+  prevVx = new Array(gridW * gridH).fill(0);
+  prevVy = new Array(gridW * gridH).fill(0);
+  prevDensity = new Array(gridW * gridH).fill(0);
+
+  console.log(`Grid: ${gridW}x${gridH} cells`);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+function idx(x, y) {
+  x = Math.max(0, Math.min(gridW - 1, Math.floor(x)));
+  y = Math.max(0, Math.min(gridH - 1, Math.floor(y)));
+  return y * gridW + x;
+}
+
+function addVelocity(x, y, vx_add, vy_add, density_add) {
+  const i = idx(x, y);
+  vx[i] += vx_add;
+  vy[i] += vy_add;
+  density[i] += density_add;
+}
+
+function diffuse(b, x, x0, diff, dt) {
+  const a = dt * diff * (gridW - 2) * (gridH - 2);
+  for (let k = 0; k < 4; k++) {
+    for (let i = 1; i < gridW - 1; i++) {
+      for (let j = 1; j < gridH - 1; j++) {
+        const index = idx(i, j);
+        x[index] = (x0[index] + a * (
+          x[idx(i-1,j)] + x[idx(i+1,j)] +
+          x[idx(i,j-1)] + x[idx(i,j+1)]
+        )) / (1 + 4 * a);
+      }
+    }
+  }
+}
+
+function advect(b, d, d0, vx, vy, dt) {
+  const dt0x = dt * (gridW - 2);
+  const dt0y = dt * (gridH - 2);
+
+  for (let i = 1; i < gridW - 1; i++) {
+    for (let j = 1; j < gridH - 1; j++) {
+      let x = i - dt0x * vx[idx(i,j)];
+      let y = j - dt0y * vy[idx(i,j)];
+
+      x = Math.max(0.5, Math.min(gridW - 1.5, x));
+      y = Math.max(0.5, Math.min(gridH - 1.5, y));
+
+      const i0 = Math.floor(x), i1 = i0 + 1;
+      const j0 = Math.floor(y), j1 = j0 + 1;
+
+      const s1 = x - i0, s0 = 1 - s1;
+      const t1 = y - j0, t0 = 1 - t1;
+
+      d[idx(i,j)] =
+        s0 * (t0 * d0[idx(i0,j0)] + t1 * d0[idx(i0,j1)]) +
+        s1 * (t0 * d0[idx(i1,j0)] + t1 * d0[idx(i1,j1)]);
+    }
+  }
+}
+
+function project(vx, vy, p, div) {
+  for (let i = 1; i < gridW - 1; i++) {
+    for (let j = 1; j < gridH - 1; j++) {
+      div[idx(i,j)] = -0.5 * (
+        vx[idx(i+1,j)] - vx[idx(i-1,j)] +
+        vy[idx(i,j+1)] - vy[idx(i,j-1)]
+      ) / gridW;
+      p[idx(i,j)] = 0;
+    }
+  }
+
+  for (let k = 0; k < 4; k++) {
+    for (let i = 1; i < gridW - 1; i++) {
+      for (let j = 1; j < gridH - 1; j++) {
+        p[idx(i,j)] = (div[idx(i,j)] +
+          p[idx(i-1,j)] + p[idx(i+1,j)] +
+          p[idx(i,j-1)] + p[idx(i,j+1)]
+        ) / 4;
+      }
+    }
+  }
+
+  for (let i = 1; i < gridW - 1; i++) {
+    for (let j = 1; j < gridH - 1; j++) {
+      vx[idx(i,j)] -= 0.5 * (p[idx(i+1,j)] - p[idx(i-1,j)]) * gridW;
+      vy[idx(i,j)] -= 0.5 * (p[idx(i,j+1)] - p[idx(i,j-1)]) * gridH;
+    }
+  }
+}
+
+function step(dt) {
+  const visc = 0.00005;
+  const diff = 0.0005;
+
+  diffuse(1, prevVx, vx, visc, dt);
+  diffuse(2, prevVy, vy, visc, dt);
+
+  project(prevVx, prevVy, vx, vy);
+
+  advect(1, vx, prevVx, prevVx, prevVy, dt);
+  advect(2, vy, prevVy, prevVx, prevVy, dt);
+
+  project(vx, vy, prevVx, prevVy);
+
+  diffuse(0, prevDensity, density, diff, dt);
+  advect(0, density, prevDensity, vx, vy, dt);
+
+  for (let i = 0; i < density.length; i++) {
+    density[i] *= 0.992;
+  }
+}
+
+function render() {
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+
+  for (let i = 0; i < width; i++) {
+    for (let j = 0; j < height; j++) {
+      const gx = i / GRID_SIZE;
+      const gy = j / GRID_SIZE;
+      const d = density[idx(gx, gy)] || 0;
+      const velX = vx[idx(gx,gy)] || 0;
+      const velY = vy[idx(gx,gy)] || 0;
+      const v = Math.sqrt(velX**2 + velY**2);
+
+      const pixelIndex = (j * width + i) * 4;
+      const angle = Math.atan2(velY, velX);
+      const hue = ((angle + Math.PI) / (Math.PI * 2) * 360 + time * 40) % 360;
+      const sat = Math.min(100, 50 + v * 30);
+      const lum = Math.min(75, d * 4 + v * 20);
+
+      const [r, g, b] = hslToRgb(hue, sat, lum);
+      data[pixelIndex] = r;
+      data[pixelIndex + 1] = g;
+      data[pixelIndex + 2] = b;
+      data[pixelIndex + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function hslToRgb(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  autoAnimate = false;
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  autoAnimate = false;
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+});
+
+let lastTime = Date.now();
+function animate() {
+  const now = Date.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  time += dt;
+
+  if (autoAnimate) {
+    const numSources = 4;
+    for (let i = 0; i < numSources; i++) {
+      const angle = (time * 0.3 + i * Math.PI * 2 / numSources);
+      const radius = 0.25;
+      const x = width * (0.5 + Math.cos(angle) * radius);
+      const y = height * (0.5 + Math.sin(angle) * radius);
+
+      const vx = -Math.sin(angle) * 4;
+      const vy = Math.cos(angle) * 4;
+
+      addVelocity(x / GRID_SIZE, y / GRID_SIZE, vx, vy, 200);
+
+      for (let j = -1; j <= 1; j++) {
+        for (let k = -1; k <= 1; k++) {
+          addVelocity(x / GRID_SIZE + j, y / GRID_SIZE + k, vx * 0.5, vy * 0.5, 100);
+        }
+      }
+    }
+
+    const centerX = gridW / 2;
+    const centerY = gridH / 2;
+    const vortexStrength = 0.025 + Math.sin(time * 0.5) * 0.008;
+
+    for (let i = 1; i < gridW - 1; i += 2) {
+      for (let j = 1; j < gridH - 1; j += 2) {
+        const dx = i - centerX;
+        const dy = j - centerY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > 20 && distSq < 3000) {
+          const dist = Math.sqrt(distSq);
+          const force = vortexStrength / dist;
+          vx[idx(i,j)] -= dx * force;
+          vy[idx(i,j)] -= dy * force;
+
+          if (i + 1 < gridW - 1) {
+            vx[idx(i+1,j)] -= dx * force;
+            vy[idx(i+1,j)] -= dy * force;
+          }
+          if (j + 1 < gridH - 1) {
+            vx[idx(i,j+1)] -= dx * force;
+            vy[idx(i,j+1)] -= dy * force;
+          }
+        }
+      }
+    }
+  } else {
+    const dx = mouseX - prevMouseX;
+    const dy = mouseY - prevMouseY;
+
+    if (dx * dx + dy * dy > 1) {
+      const gx = mouseX / GRID_SIZE;
+      const gy = mouseY / GRID_SIZE;
+      addVelocity(gx, gy, dx * 0.8, dy * 0.8, 200);
+
+      for (let i = -2; i <= 2; i++) {
+        for (let j = -2; j <= 2; j++) {
+          const dist = Math.sqrt(i*i + j*j);
+          if (dist < 3) {
+            addVelocity(gx + i, gy + j, dx * 0.5 / (dist + 1), dy * 0.5 / (dist + 1), 100 / (dist + 1));
+          }
+        }
+      }
+    }
+  }
+
+  step(dt);
+  render();
+  requestAnimationFrame(animate);
+}
+
+animate();
+console.log('Fluid simulation running at 60fps');
+</script>
+</body>
+</html>

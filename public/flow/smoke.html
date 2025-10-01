@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smoke Trails</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100vh;
+}
+
+.nav {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.nav a {
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 12px;
+  transition: all 0.3s;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.nav a:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+.info {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Fluid</a>
+  <a href="smoke.html">Smoke</a>
+  <a href="ripple.html">Ripple</a>
+  <a href="wind.html">Wind</a>
+  <a href="../index.html">Hub</a>
+</div>
+
+<div class="info">Click to emit smoke</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+console.log('SMOKE TRAILS - Particle-based smoke simulation');
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let width, height;
+const particles = [];
+const maxParticles = 3000;
+
+class Particle {
+  constructor(x, y, vx, vy) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.life = 1;
+    this.decay = 0.003 + Math.random() * 0.002;
+    this.size = 2 + Math.random() * 4;
+    this.hue = Math.random() * 60 + 200;
+  }
+
+  update(dt) {
+    this.x += this.vx * dt * 60;
+    this.y += this.vy * dt * 60;
+    this.vx += (Math.random() - 0.5) * 0.2;
+    this.vy -= 0.3 * dt;
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.life -= this.decay;
+    this.size *= 1.01;
+    return this.life > 0;
+  }
+}
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+let mouseX = width / 2;
+let mouseY = height / 2;
+let emitting = false;
+
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+canvas.addEventListener('mousedown', () => emitting = true);
+canvas.addEventListener('mouseup', () => emitting = false);
+canvas.addEventListener('touchstart', (e) => {
+  emitting = true;
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+});
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+});
+canvas.addEventListener('touchend', () => emitting = false);
+
+const emitters = [];
+for (let i = 0; i < 5; i++) {
+  emitters.push({
+    x: Math.random() * width,
+    y: height + 50,
+    phase: Math.random() * Math.PI * 2
+  });
+}
+
+let time = 0;
+let lastTime = Date.now();
+
+function animate() {
+  const now = Date.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  time += dt;
+
+  ctx.fillStyle = 'rgba(26, 26, 46, 0.08)';
+  ctx.fillRect(0, 0, width, height);
+
+  for (let i = 0; i < emitters.length; i++) {
+    const e = emitters[i];
+    e.x = width * (0.2 + i * 0.15) + Math.sin(time * 0.5 + e.phase) * 60;
+
+    for (let j = 0; j < 3; j++) {
+      if (particles.length < maxParticles) {
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.4;
+        const speed = 2 + Math.random() * 2;
+        particles.push(new Particle(
+          e.x,
+          e.y,
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed
+        ));
+      }
+    }
+  }
+
+  if (emitting) {
+    for (let i = 0; i < 5; i++) {
+      if (particles.length < maxParticles) {
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+        const speed = 3 + Math.random() * 3;
+        particles.push(new Particle(
+          mouseX + (Math.random() - 0.5) * 10,
+          mouseY + (Math.random() - 0.5) * 10,
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed
+        ));
+      }
+    }
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    if (!p.update(dt)) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    const alpha = p.life * 0.4;
+    const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+    gradient.addColorStop(0, `hsla(${p.hue}, 70%, 70%, ${alpha})`);
+    gradient.addColorStop(0.5, `hsla(${p.hue}, 60%, 50%, ${alpha * 0.5})`);
+    gradient.addColorStop(1, `hsla(${p.hue}, 50%, 30%, 0)`);
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+console.log(`Smoke simulation: ${maxParticles} max particles`);
+</script>
+</body>
+</html>

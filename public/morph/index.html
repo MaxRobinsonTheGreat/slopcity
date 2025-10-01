@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shape Morph Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8892b0;
+            margin-bottom: 8px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        input[type="range"] {
+            width: 200px;
+            margin-right: 10px;
+        }
+
+        .value {
+            display: inline-block;
+            min-width: 40px;
+            color: #64ffda;
+            font-weight: 600;
+        }
+
+        .nav {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .nav a {
+            background: rgba(20, 25, 40, 0.9);
+            color: #64ffda;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .nav a:hover {
+            background: rgba(100, 255, 218, 0.1);
+            border-color: rgba(100, 255, 218, 0.5);
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #8892b0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 300px;
+        }
+
+        .info .highlight {
+            color: #64ffda;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                padding: 15px;
+                max-width: calc(100vw - 40px);
+            }
+
+            .info {
+                font-size: 10px;
+                padding: 10px 15px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 11px;
+            }
+
+            input[type="range"] {
+                width: 150px;
+            }
+
+            .nav {
+                flex-wrap: wrap;
+            }
+
+            .progress-bar {
+                width: 200px;
+            }
+        }
+
+        .shape-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .animate-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, #64ffda 0%, #667eea 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0;
+            animation: fadeOut 3s ease-out forwards;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64ffda, #667eea);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="title">MORPH</div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Shape Presets</label>
+            <button class="shape-btn" onclick="loadShape('circle')">Circle</button>
+            <button class="shape-btn" onclick="loadShape('square')">Square</button>
+            <button class="shape-btn" onclick="loadShape('triangle')">Triangle</button>
+            <button class="shape-btn" onclick="loadShape('star')">Star</button>
+            <button class="shape-btn" onclick="loadShape('heart')">Heart</button>
+            <button class="shape-btn" onclick="loadShape('hexagon')">Hex</button>
+            <button class="shape-btn" onclick="loadShape('pentagon')">Penta</button>
+            <button class="shape-btn" onclick="loadShape('crescent')">Moon</button>
+        </div>
+
+        <div class="control-group">
+            <label>Animation</label>
+            <button class="animate-btn" onclick="toggleAnimation()">Play/Pause</button>
+            <button class="animate-btn" onclick="resetAnimation()">Reset</button>
+            <button class="animate-btn" onclick="randomize()">Random</button>
+        </div>
+
+        <div class="control-group">
+            <label>Speed</label>
+            <input type="range" id="speed" min="1" max="100" value="50" oninput="updateSpeed(this.value)">
+            <span class="value" id="speedValue">50</span>
+        </div>
+
+        <div class="control-group">
+            <label>Smoothness</label>
+            <input type="range" id="smooth" min="0" max="100" value="70" oninput="updateSmoothness(this.value)">
+            <span class="value" id="smoothValue">70</span>
+        </div>
+    </div>
+
+    <div class="info">
+        <span class="highlight">Drag vertices</span> to sculpt shapes<br>
+        Select presets to morph between forms<br>
+        Adjust speed & smoothness in real-time
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="nav">
+        <a href="polygon.html">Polygon Builder</a>
+        <a href="curves.html">Curve Editor</a>
+        <a href="tessellation.html">Tessellation</a>
+        <a href="../index.html">Hub</a>
+    </div>
+
+    <script>
+        console.log('%c MORPH STUDIO ', 'background: linear-gradient(135deg, #64ffda, #667eea); color: #000; font-weight: bold; font-size: 20px; padding: 10px;');
+        console.log('Geometric transformation engine initialized');
+        console.log('Keyboard shortcuts: SPACE=play/pause, R=reset, Q=random');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        let shapeA = [];
+        let shapeB = [];
+        let currentShape = [];
+        let isAnimating = false;
+        let progress = 0;
+        let speed = 0.5;
+        let smoothness = 0.7;
+        let selectedVertex = null;
+        let particles = [];
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function generateShape(type, cx, cy, size) {
+            console.log(`Generating ${type} shape at (${cx}, ${cy})`);
+            const points = [];
+
+            switch(type) {
+                case 'circle':
+                    for (let i = 0; i < 32; i++) {
+                        const angle = (i / 32) * Math.PI * 2;
+                        points.push({
+                            x: cx + Math.cos(angle) * size,
+                            y: cy + Math.sin(angle) * size
+                        });
+                    }
+                    break;
+
+                case 'square':
+                    points.push({x: cx - size, y: cy - size});
+                    points.push({x: cx + size, y: cy - size});
+                    points.push({x: cx + size, y: cy + size});
+                    points.push({x: cx - size, y: cy + size});
+                    break;
+
+                case 'triangle':
+                    for (let i = 0; i < 3; i++) {
+                        const angle = (i / 3) * Math.PI * 2 - Math.PI / 2;
+                        points.push({
+                            x: cx + Math.cos(angle) * size,
+                            y: cy + Math.sin(angle) * size
+                        });
+                    }
+                    break;
+
+                case 'star':
+                    for (let i = 0; i < 10; i++) {
+                        const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                        const radius = i % 2 === 0 ? size : size * 0.4;
+                        points.push({
+                            x: cx + Math.cos(angle) * radius,
+                            y: cy + Math.sin(angle) * radius
+                        });
+                    }
+                    break;
+
+                case 'heart':
+                    for (let i = 0; i < 32; i++) {
+                        const t = (i / 32) * Math.PI * 2;
+                        const x = 16 * Math.pow(Math.sin(t), 3);
+                        const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                        points.push({
+                            x: cx + x * size / 16,
+                            y: cy + y * size / 16
+                        });
+                    }
+                    break;
+
+                case 'hexagon':
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                        points.push({
+                            x: cx + Math.cos(angle) * size,
+                            y: cy + Math.sin(angle) * size
+                        });
+                    }
+                    break;
+
+                case 'pentagon':
+                    for (let i = 0; i < 5; i++) {
+                        const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+                        points.push({
+                            x: cx + Math.cos(angle) * size,
+                            y: cy + Math.sin(angle) * size
+                        });
+                    }
+                    break;
+
+                case 'crescent':
+                    for (let i = 0; i < 32; i++) {
+                        const t = (i / 32) * Math.PI * 1.5 + Math.PI * 0.25;
+                        const r = size + Math.cos(t * 2) * size * 0.3;
+                        points.push({
+                            x: cx + Math.cos(t) * r,
+                            y: cy + Math.sin(t) * r
+                        });
+                    }
+                    break;
+            }
+
+            return points;
+        }
+
+        function normalizePoints(points, targetCount) {
+            if (points.length === targetCount) return points;
+
+            const normalized = [];
+            const ratio = points.length / targetCount;
+
+            for (let i = 0; i < targetCount; i++) {
+                const index = i * ratio;
+                const floor = Math.floor(index);
+                const ceil = Math.ceil(index) % points.length;
+                const t = index - floor;
+
+                const p1 = points[floor];
+                const p2 = points[ceil];
+
+                normalized.push({
+                    x: p1.x + (p2.x - p1.x) * t,
+                    y: p1.y + (p2.y - p1.y) * t
+                });
+            }
+
+            return normalized;
+        }
+
+        function interpolate(a, b, t) {
+            // Smooth interpolation with easing
+            const eased = smoothness > 0.5
+                ? 1 - Math.pow(1 - t, 3) // ease out
+                : t * t * (3 - 2 * t); // smoothstep
+
+            return {
+                x: a.x + (b.x - a.x) * eased,
+                y: a.y + (b.y - a.y) * eased
+            };
+        }
+
+        function drawShape(points, color, lineWidth = 2, fill = false) {
+            if (points.length < 2) return;
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+
+            ctx.closePath();
+
+            if (fill) {
+                ctx.fillStyle = color.replace(')', ', 0.1)').replace('rgb', 'rgba');
+                ctx.fill();
+            }
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+
+            // Draw vertices
+            points.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(10, 15, 26, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw particles
+            particles = particles.filter(p => {
+                p.life -= 0.02;
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.life > 0) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(100, 255, 218, ${p.life * 0.5})`;
+                    ctx.fill();
+                    return true;
+                }
+                return false;
+            });
+
+            if (shapeA.length > 0) {
+                drawShape(shapeA, 'rgba(100, 255, 218, 0.2)', 1);
+            }
+
+            if (shapeB.length > 0) {
+                drawShape(shapeB, 'rgba(255, 100, 218, 0.2)', 1);
+            }
+
+            if (isAnimating && shapeA.length > 0 && shapeB.length > 0) {
+                progress += speed * 0.01;
+
+                if (progress >= 1) {
+                    progress = 0;
+                    // Swap shapes
+                    [shapeA, shapeB] = [shapeB, shapeA];
+                }
+
+                const normalizedA = normalizePoints(shapeA, 32);
+                const normalizedB = normalizePoints(shapeB, 32);
+
+                currentShape = normalizedA.map((p, i) =>
+                    interpolate(p, normalizedB[i], progress)
+                );
+
+                // Emit particles from vertices
+                if (Math.random() < 0.3) {
+                    const vertex = currentShape[Math.floor(Math.random() * currentShape.length)];
+                    particles.push({
+                        x: vertex.x,
+                        y: vertex.y,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: 1,
+                        size: 2 + Math.random() * 2
+                    });
+                }
+
+                // Draw glow with pulse effect
+                const pulseIntensity = 15 + Math.sin(Date.now() * 0.003) * 5;
+                ctx.shadowBlur = pulseIntensity;
+                ctx.shadowColor = '#64ffda';
+                drawShape(currentShape, '#64ffda', 3, true);
+                ctx.shadowBlur = 0;
+
+                // Update progress bar
+                document.getElementById('progressFill').style.width = (progress * 100) + '%';
+            } else if (currentShape.length > 0) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#64ffda';
+                drawShape(currentShape, '#64ffda', 3, true);
+                ctx.shadowBlur = 0;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function loadShape(type) {
+            const cx = width / 2;
+            const cy = height / 2;
+            const size = Math.min(width, height) * 0.2;
+
+            if (shapeA.length === 0) {
+                shapeA = generateShape(type, cx, cy, size);
+                currentShape = [...shapeA];
+                console.log(`Shape A set to ${type}`);
+            } else {
+                shapeB = generateShape(type, cx, cy, size);
+                isAnimating = true;
+                progress = 0;
+                console.log(`Shape B set to ${type}, starting morph`);
+            }
+        }
+
+        function toggleAnimation() {
+            if (shapeA.length > 0 && shapeB.length > 0) {
+                isAnimating = !isAnimating;
+                console.log(`Animation ${isAnimating ? 'started' : 'paused'}`);
+            }
+        }
+
+        function resetAnimation() {
+            shapeA = [];
+            shapeB = [];
+            currentShape = [];
+            isAnimating = false;
+            progress = 0;
+            particles = [];
+            document.getElementById('progressFill').style.width = '0%';
+            ctx.fillStyle = 'rgba(10, 15, 26, 1)';
+            ctx.fillRect(0, 0, width, height);
+            console.log('Animation reset');
+        }
+
+        function updateSpeed(value) {
+            speed = value / 50;
+            document.getElementById('speedValue').textContent = value;
+        }
+
+        function updateSmoothness(value) {
+            smoothness = value / 100;
+            document.getElementById('smoothValue').textContent = value;
+        }
+
+        function randomize() {
+            const shapes = ['circle', 'square', 'triangle', 'star', 'heart', 'hexagon', 'pentagon', 'crescent'];
+            const shape1 = shapes[Math.floor(Math.random() * shapes.length)];
+            let shape2 = shapes[Math.floor(Math.random() * shapes.length)];
+            while (shape2 === shape1) {
+                shape2 = shapes[Math.floor(Math.random() * shapes.length)];
+            }
+
+            resetAnimation();
+            loadShape(shape1);
+            setTimeout(() => loadShape(shape2), 100);
+            console.log(`Randomized: ${shape1} -> ${shape2}`);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                toggleAnimation();
+            } else if (e.key === 'r' || e.key === 'R') {
+                resetAnimation();
+            } else if (e.key === 'q' || e.key === 'Q') {
+                randomize();
+            }
+        });
+
+        // Mouse interaction
+        let isDragging = false;
+        let draggedPoint = null;
+        let draggedShape = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            // Check if clicking on a vertex
+            const checkVertex = (shape, shapeName) => {
+                for (let i = 0; i < shape.length; i++) {
+                    const p = shape[i];
+                    const dist = Math.hypot(mx - p.x, my - p.y);
+                    if (dist < 10) {
+                        isDragging = true;
+                        draggedPoint = i;
+                        draggedShape = shapeName;
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            if (!checkVertex(currentShape, 'current')) {
+                checkVertex(shapeA, 'A') || checkVertex(shapeB, 'B');
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+
+                if (draggedShape === 'A' && shapeA[draggedPoint]) {
+                    shapeA[draggedPoint].x = mx;
+                    shapeA[draggedPoint].y = my;
+                } else if (draggedShape === 'B' && shapeB[draggedPoint]) {
+                    shapeB[draggedPoint].x = mx;
+                    shapeB[draggedPoint].y = my;
+                } else if (draggedShape === 'current' && currentShape[draggedPoint]) {
+                    currentShape[draggedPoint].x = mx;
+                    currentShape[draggedPoint].y = my;
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            draggedPoint = null;
+            draggedShape = null;
+        });
+
+        // Initialize with default shapes
+        setTimeout(() => {
+            loadShape('circle');
+            setTimeout(() => {
+                loadShape('star');
+            }, 500);
+        }, 100);
+
+        animate();
+        console.log('%cReady to morph! 🔷', 'color: #64ffda; font-weight: bold;');
+    </script>
+</body>
+</html>

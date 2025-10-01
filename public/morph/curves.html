@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bezier Curve Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f1a2e 0%, #1a2e3a 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8892b0;
+            margin-bottom: 8px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        input[type="range"] {
+            width: 200px;
+            margin-right: 10px;
+        }
+
+        .value {
+            display: inline-block;
+            min-width: 40px;
+            color: #4facfe;
+            font-weight: 600;
+        }
+
+        .nav {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .nav a {
+            background: rgba(20, 25, 40, 0.9);
+            color: #4facfe;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(79, 172, 254, 0.2);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .nav a:hover {
+            background: rgba(79, 172, 254, 0.1);
+            border-color: rgba(79, 172, 254, 0.5);
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 25, 40, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #8892b0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info .highlight {
+            color: #4facfe;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Curve Type</label>
+            <button onclick="setCurveType('quadratic')">Quadratic</button>
+            <button onclick="setCurveType('cubic')">Cubic</button>
+        </div>
+
+        <div class="control-group">
+            <label>Actions</label>
+            <button onclick="addCurve()">Add Curve</button>
+            <button onclick="clearAll()">Clear All</button>
+        </div>
+
+        <div class="control-group">
+            <label>Resolution</label>
+            <input type="range" id="resolution" min="10" max="200" value="50" oninput="updateResolution(this.value)">
+            <span class="value" id="resValue">50</span>
+        </div>
+
+        <div class="control-group">
+            <label>Presets</label>
+            <button onclick="loadPreset('wave')">Wave</button>
+            <button onclick="loadPreset('spiral')">Spiral</button>
+        </div>
+    </div>
+
+    <div class="info">
+        <span class="highlight">Drag control points</span> to shape curves<br>
+        Bezier interpolation in real-time<br>
+        Build smooth flowing paths
+    </div>
+
+    <div class="nav">
+        <a href="index.html">Morph Studio</a>
+        <a href="polygon.html">Polygon Builder</a>
+        <a href="tessellation.html">Tessellation</a>
+        <a href="../index.html">Hub</a>
+    </div>
+
+    <script>
+        console.log('%c CURVE EDITOR ', 'background: linear-gradient(135deg, #4facfe, #00f2fe); color: #000; font-weight: bold; font-size: 16px; padding: 8px;');
+        console.log('Bezier curve editing system initialized');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        let curves = [];
+        let curveType = 'cubic';
+        let resolution = 50;
+        let draggedPoint = null;
+        let hoveredPoint = null;
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function bezierQuadratic(t, p0, p1, p2) {
+            const u = 1 - t;
+            return {
+                x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+                y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y
+            };
+        }
+
+        function bezierCubic(t, p0, p1, p2, p3) {
+            const u = 1 - t;
+            return {
+                x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+                y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
+            };
+        }
+
+        function drawCurve(curve) {
+            const points = [];
+
+            // Calculate curve points
+            for (let i = 0; i <= resolution; i++) {
+                const t = i / resolution;
+                let pt;
+
+                if (curve.type === 'quadratic') {
+                    pt = bezierQuadratic(t, curve.p0, curve.p1, curve.p2);
+                } else {
+                    pt = bezierCubic(t, curve.p0, curve.p1, curve.p2, curve.p3);
+                }
+
+                points.push(pt);
+            }
+
+            // Draw curve with glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#4facfe';
+            ctx.strokeStyle = '#4facfe';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw control lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            if (curve.type === 'quadratic') {
+                ctx.beginPath();
+                ctx.moveTo(curve.p0.x, curve.p0.y);
+                ctx.lineTo(curve.p1.x, curve.p1.y);
+                ctx.lineTo(curve.p2.x, curve.p2.y);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(curve.p0.x, curve.p0.y);
+                ctx.lineTo(curve.p1.x, curve.p1.y);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(curve.p2.x, curve.p2.y);
+                ctx.lineTo(curve.p3.x, curve.p3.y);
+                ctx.stroke();
+            }
+
+            ctx.setLineDash([]);
+
+            // Draw control points
+            const controlPoints = curve.type === 'quadratic'
+                ? [curve.p0, curve.p1, curve.p2]
+                : [curve.p0, curve.p1, curve.p2, curve.p3];
+
+            controlPoints.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p === hoveredPoint ? 8 : 6, 0, Math.PI * 2);
+                ctx.fillStyle = i === 0 || i === controlPoints.length - 1 ? '#00ff88' : '#4facfe';
+                ctx.fill();
+            });
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(15, 26, 46, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            curves.forEach(curve => drawCurve(curve));
+
+            requestAnimationFrame(animate);
+        }
+
+        function addCurve() {
+            const cx = width / 2;
+            const cy = height / 2;
+            const offset = 150;
+
+            if (curveType === 'quadratic') {
+                curves.push({
+                    type: 'quadratic',
+                    p0: { x: cx - offset, y: cy },
+                    p1: { x: cx, y: cy - offset },
+                    p2: { x: cx + offset, y: cy }
+                });
+            } else {
+                curves.push({
+                    type: 'cubic',
+                    p0: { x: cx - offset, y: cy },
+                    p1: { x: cx - offset / 2, y: cy - offset },
+                    p2: { x: cx + offset / 2, y: cy + offset },
+                    p3: { x: cx + offset, y: cy }
+                });
+            }
+
+            console.log(`Added ${curveType} curve`);
+        }
+
+        function setCurveType(type) {
+            curveType = type;
+            console.log('Curve type:', type);
+        }
+
+        function clearAll() {
+            curves = [];
+            ctx.fillStyle = 'rgba(15, 26, 46, 1)';
+            ctx.fillRect(0, 0, width, height);
+            console.log('Cleared all curves');
+        }
+
+        function updateResolution(value) {
+            resolution = parseInt(value);
+            document.getElementById('resValue').textContent = value;
+        }
+
+        function loadPreset(type) {
+            clearAll();
+
+            if (type === 'wave') {
+                for (let i = 0; i < 3; i++) {
+                    const x = width * 0.2 + i * width * 0.3;
+                    const y = height / 2;
+                    curves.push({
+                        type: 'cubic',
+                        p0: { x: x, y: y },
+                        p1: { x: x + 50, y: y - 100 },
+                        p2: { x: x + 100, y: y + 100 },
+                        p3: { x: x + 150, y: y }
+                    });
+                }
+            } else if (type === 'spiral') {
+                const cx = width / 2;
+                const cy = height / 2;
+
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const r1 = 50 + i * 20;
+                    const r2 = 70 + i * 20;
+
+                    curves.push({
+                        type: 'cubic',
+                        p0: { x: cx + Math.cos(angle) * r1, y: cy + Math.sin(angle) * r1 },
+                        p1: { x: cx + Math.cos(angle + 0.5) * r2, y: cy + Math.sin(angle + 0.5) * r2 },
+                        p2: { x: cx + Math.cos(angle + 1) * r2, y: cy + Math.sin(angle + 1) * r2 },
+                        p3: { x: cx + Math.cos(angle + 1.57) * (r1 + 20), y: cy + Math.sin(angle + 1.57) * (r1 + 20) }
+                    });
+                }
+            }
+
+            console.log('Loaded preset:', type);
+        }
+
+        // Mouse interaction
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            for (let curve of curves) {
+                const points = curve.type === 'quadratic'
+                    ? [curve.p0, curve.p1, curve.p2]
+                    : [curve.p0, curve.p1, curve.p2, curve.p3];
+
+                for (let p of points) {
+                    const dist = Math.hypot(mx - p.x, my - p.y);
+                    if (dist < 15) {
+                        draggedPoint = p;
+                        return;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            if (draggedPoint) {
+                draggedPoint.x = mx;
+                draggedPoint.y = my;
+            } else {
+                hoveredPoint = null;
+
+                for (let curve of curves) {
+                    const points = curve.type === 'quadratic'
+                        ? [curve.p0, curve.p1, curve.p2]
+                        : [curve.p0, curve.p1, curve.p2, curve.p3];
+
+                    for (let p of points) {
+                        const dist = Math.hypot(mx - p.x, my - p.y);
+                        if (dist < 15) {
+                            hoveredPoint = p;
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggedPoint = null;
+        });
+
+        // Start with a demo curve
+        setTimeout(() => {
+            addCurve();
+        }, 100);
+
+        animate();
+        console.log('Ready to edit curves');
+    </script>
+</body>
+</html>
