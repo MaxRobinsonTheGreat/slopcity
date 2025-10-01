@@ -3,100 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slopcity</title>
+    <title>Slopcity - AI Agent Swarm</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 40px 20px;
+            background: #0a0a0a;
+            color: white;
+            overflow-x: hidden;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .warning-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255, 196, 0, 0.3);
+            z-index: 1000;
+        }
+        .warning-header p {
+            margin: 0;
+            font-size: 0.95em;
+            color: #ffc400;
+            font-weight: 500;
+        }
+        .hero {
+            margin-top: 60px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(255,255,255,0.05) 0%, transparent 50%);
+            pointer-events: none;
         }
         h1 {
-            text-align: center;
-            color: white;
-            font-size: 4em;
+            font-size: clamp(3em, 10vw, 6em);
             margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+            z-index: 1;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
         }
         .subtitle {
-            text-align: center;
-            color: rgba(255,255,255,0.9);
-            font-size: 1.2em;
-            margin-bottom: 60px;
+            font-size: 1.5em;
+            opacity: 0.95;
+            margin-bottom: 40px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            z-index: 1;
         }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+        .scroll-hint {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-top: 40px;
+            animation: bounce 2s ease-in-out infinite;
+            z-index: 1;
         }
-        .card {
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 30px;
-            transition: transform 0.3s, background 0.3s;
-            border: 1px solid rgba(255,255,255,0.2);
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(10px); }
         }
-        .card:hover {
-            transform: translateY(-5px);
-            background: rgba(255,255,255,0.25);
+        .experiences {
+            background: #0a0a0a;
+            padding: 60px 20px;
         }
-        .card a {
+        .section {
+            max-width: 1400px;
+            margin: 0 auto 80px;
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .section-title h2 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-title a {
             color: white;
             text-decoration: none;
-            font-size: 1.3em;
-            font-weight: 600;
+            font-size: 1.2em;
+            padding: 10px 20px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            transition: all 0.3s;
+        }
+        .section-title a:hover {
+            background: #667eea;
+            transform: scale(1.05);
+        }
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .iframe-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.5);
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
             display: block;
         }
-        .card a:hover {
-            text-decoration: underline;
-        }
-        .placeholder {
-            opacity: 0.5;
-            font-style: italic;
+        @media (max-width: 768px) {
+            h1 { font-size: 3em; }
+            .subtitle { font-size: 1.2em; }
+            .section-title h2 { font-size: 1.8em; }
+            .iframe-container { height: 400px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="warning-header">
+        <p>⚠️ All content is AI generated</p>
+    </div>
+
+    <div class="hero">
         <h1>🏙️ Slopcity</h1>
         <p class="subtitle">AI Agent Swarm Experiment</p>
+        <p class="scroll-hint">↓ Scroll to explore 10 unique experiences ↓</p>
+    </div>
 
-        <div class="grid">
-            <div class="card">
-                <a href="particle/index.html">Particle Systems</a>
+    <div class="experiences">
+        <div class="section">
+            <div class="section-title">
+                <h2>🌊 Particle Systems</h2>
+                <a href="particle/index.html" target="_blank">Open Full →</a>
             </div>
-            <div class="card">
-                <a href="flow/index.html">Fluid Dynamics</a>
+            <div class="iframe-container">
+                <iframe src="particle/index.html" loading="lazy"></iframe>
             </div>
-            <div class="card">
-                <a href="synth/index.html">Audio Synthesizers</a>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>💧 Fluid Dynamics</h2>
+                <a href="flow/index.html" target="_blank">Open Full →</a>
             </div>
-            <div class="card">
-                <a href="maze/index.html">Maze Generator & Solver</a>
+            <div class="iframe-container">
+                <iframe src="flow/index.html" loading="lazy"></iframe>
             </div>
-            <div class="card">
-                <a href="cosmos/index.html">Cosmos - Space Simulations</a>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🎹 Audio Synthesizers</h2>
+                <a href="synth/index.html" target="_blank">Open Full →</a>
             </div>
-            <div class="card">
-                <a href="neural/index.html">Neural Networks</a>
+            <div class="iframe-container">
+                <iframe src="synth/index.html" loading="lazy"></iframe>
             </div>
-            <div class="card">
-                <a href="fractal/index.html">Fractal Explorer</a>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🧩 Maze Generator & Solver</h2>
+                <a href="maze/index.html" target="_blank">Open Full →</a>
             </div>
-            <div class="card">
-                <a href="velocity/index.html">Velocity - Motion Physics</a>
+            <div class="iframe-container">
+                <iframe src="maze/index.html" loading="lazy"></iframe>
             </div>
-            <div class="card">
-                <a href="prism/index.html">PRISM - Light & Optics</a>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🌌 Cosmos - Space Simulations</h2>
+                <a href="cosmos/index.html" target="_blank">Open Full →</a>
             </div>
-            <div class="card">
-                <a href="morph/index.html">Morph - Shape Transformations</a>
+            <div class="iframe-container">
+                <iframe src="cosmos/index.html" loading="lazy"></iframe>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🧠 Neural Networks</h2>
+                <a href="neural/index.html" target="_blank">Open Full →</a>
+            </div>
+            <div class="iframe-container">
+                <iframe src="neural/index.html" loading="lazy"></iframe>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🌀 Fractal Explorer</h2>
+                <a href="fractal/index.html" target="_blank">Open Full →</a>
+            </div>
+            <div class="iframe-container">
+                <iframe src="fractal/index.html" loading="lazy"></iframe>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🚀 Velocity - Motion Physics</h2>
+                <a href="velocity/index.html" target="_blank">Open Full →</a>
+            </div>
+            <div class="iframe-container">
+                <iframe src="velocity/index.html" loading="lazy"></iframe>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🌈 PRISM - Light & Optics</h2>
+                <a href="prism/index.html" target="_blank">Open Full →</a>
+            </div>
+            <div class="iframe-container">
+                <iframe src="prism/index.html" loading="lazy"></iframe>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <h2>🔷 Morph - Shape Transformations</h2>
+                <a href="morph/index.html" target="_blank">Open Full →</a>
+            </div>
+            <div class="iframe-container">
+                <iframe src="morph/index.html" loading="lazy"></iframe>
             </div>
         </div>
     </div>
