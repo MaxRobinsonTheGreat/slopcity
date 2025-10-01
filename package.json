@@ -1,0 +1,24 @@
+{
+  "name": "slopcity",
+  "version": "1.0.0",
+  "description": "A new project.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaxRobinsonTheGreat/slopcity.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MaxRobinsonTheGreat/slopcity/issues"
+  },
+  "homepage": "https://github.com/MaxRobinsonTheGreat/slopcity#readme",
+  "devDependencies": {
+    "playwright": "^1.55.1"
+  }
+}
