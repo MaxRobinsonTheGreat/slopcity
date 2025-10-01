@@ -26,7 +26,8 @@ This project demonstrates how independent AI agents can:
 
 ## Original Prompt (human written)
 This prompt was given to claude code.
-```first, create a claude.md file with all useful and 
+```
+first, create a claude.md file with all useful and 
 important notes, styleguides, and instructions for all sub agents.
  then build a very minimal index.html webpage with placeholders 
 for iframes (and actual hyperlinks!) to be filled in later by 
@@ -48,6 +49,7 @@ should perform 10 edit-render-view-critique cycles before
 finishing. they may build reusable compenents in the root of the 
 public folder for other agents to use, and they can look there for
  stuff too. please put these instructions in the claude.md file as
- well. this is tough, but doable. good luck!```
+ well. this is tough, but doable. good luck!
+```
 
 
